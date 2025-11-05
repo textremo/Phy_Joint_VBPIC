@@ -27,8 +27,32 @@
 \tableofcontents
 \newpage
 
-\section{Gamma Distribution}
-
+\section{Common Distributions}
+\subsection{Gamma Distribution}
+Supposing we have a gamma distribution $p(x; a, b)$. $a$表示事件次数，$b$表示每次发生的概率。The probability density function (PDF) of gamma distribution is
+\[
+p(x) = \frac{x^{(a-1)}b^ae^{-bx}}{\Gamma(a)}
+\] 
+\[
+\text{ln} p(x) \propto (a-1)ln(x) - bx
+\]
+The mean is
+\[
+\mu_x = \frac{a}{b}
+\]
+The variance is
+\[
+\sigma^2_x = \frac{a}{b^2}
+\]
+\subsection{Complex Gaussian Distribution}
+For a complex Gaussian distributed variable $x = [x_0, \cdots, x_{N-1}]$, its PDF is
+\[
+p(x) = \frac{1}{\pi^N det(\Sigma)}e^{-(x-\mu)^H\Sigma^{-1}(x-\mu)}
+\]
+\begin{align}
+lnp(x) \propto  -lndet(\Sigma) - (x-\mu)^H\Sigma^{-1}(x-\mu)
+\end{align}
+where $\Sigma$ is the covariance matrix.
 
 \section{Variational Bayes}
 For a telecommunication system, we have

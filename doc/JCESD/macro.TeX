@@ -1,0 +1,309 @@
+
+
+    %\newcommand{\tr}{\mbox{trace}}
+    \def\bm#1{\boldsymbol{#1}}
+    \def\ang#1{\mbox{$\langle #1 \rangle$}}
+    \def\aang#1{\mbox{$\langle\!\langle #1 \rangle\!\rangle$}}
+
+    \def\mnorm#1{\mbox{$\left|\!\left|\!\left|\, #1 \,\right|\!\right|\!\right|$}}
+
+
+
+    \def\Complex{{\rm\rule[.23ex]{.03em}{1.1ex}\kern-.3em{C}}}
+    \def\bms#1{\mbox{\boldmath $\scriptstyle #1$}}
+    \def\eqover#1{\mbox{$\buildrel #1 \over =$}}
+    \def\leqover#1{\mbox{$\buildrel #1 \over \leq$}}
+    \def\Imag#1{\mbox{${\Im}\left\{ #1 \right\}$}}
+    \def\dist{\mbox{${\sf dist}(z, {\mathbb R}^+)$}}
+    \def\largeN{\mbox{${\cal N}$}}
+
+    \newcommand{\be}{\begin{equation}} \newcommand{\ee}{\end{equation}}
+    \newcommand{\bea}{\begin{eqnarray}} \newcommand{\eea}{\end{eqnarray}}
+    \newcommand{\benum}{\begin{enumerate}} \newcommand{\eenum}{\end{enumerate}}
+    \def\proof{\noindent\hspace{2em}{\itshape Proof: }}
+    \def\aproof{\noindent\hspace{2em}{\itshape Alternative Proof: }}
+    \def\endproof{\hspace*{\fill}~$\square$\par\endtrivlist\unskip}
+    \def\endaproof{\hspace*{\fill}~$\square$\par\endtrivlist\unskip}
+
+  %\newtheorem{theorem}{Theorem}
+  %\newtheorem{conjecture}{Conjecture}
+  %\newtheorem{definition}{Definition}
+  %\newtheorem{example}{Example}
+  %\newtheorem{lemma}{Lemma}
+  %\newtheorem{proposition}{Proposition}
+  %\newtheorem{claim}{Claim}
+
+  \def \veclen {0.8}
+  \def \uppos{1.2}
+  \def \lowpos{-1.5}
+  \def \recwid{0.6}
+  \def \rechig{0.4}
+  \def \crad{0.25}
+
+  \def \Fwid{0.8}
+
+  \newcommand{\tbox}[1]{%
+
+     \bsegment
+      \realmult {\rechig}{0.5} \ta
+      \realmult {\recwid}{0.5} \tb
+       \lvec (0 \ta)    \lvec ({\recwid} \ta)
+       \lvec ({\recwid} -\ta) \lvec (0 -\ta)\lvec (0 0)
+       \textref h:C v:C \htext ({\tb} 0){#1}
+       \savepos ({\recwid} 0)(*ex *ey)
+     \esegment
+     \move (*ex *ey)}
+
+  \newcommand{\tcir}[1]{%
+     \bsegment
+     \realmult {\crad}{2} \ta
+       \move({\crad} 0)
+       \lcir r:{\crad}
+       \textref h:C v:C \htext ({\crad} 0) {#1}
+       \savepos ({\ta} 0)(*ex *ey)
+     \esegment
+     \move (*ex *ey)}
+
+
+  \newcommand{\tupnoisec}[1]{%
+     \bsegment
+     \realadd{\crad}{0.35}\arrowlen
+     \realadd{\arrowlen}{0.08}\txtpos
+     \rmove({-\crad} \arrowlen) \avec({-\crad} \crad)
+     \textref h:C v:C \htext ({-\crad} \txtpos){#1}
+     \esegment}
+
+    %%%%%% DEFINITION %%%%%%%%%%%%%%
+    \newcommand{\qa}{{\bf a}}
+        \newcommand{\qb}{{\bf b}}
+        \newcommand{\qc}{{\bf c}}
+        \newcommand{\qd}{{\bf d}}
+        \newcommand{\qe}{{\bf e}}
+        \newcommand{\qf}{{\bf f}}
+        \newcommand{\qg}{{\bf g}}
+        \newcommand{\qh}{{\bf h}}
+        \newcommand{\qi}{{\bf i}}
+        \newcommand{\qj}{{\bf j}}
+        \newcommand{\qk}{{\bf k}}
+        \newcommand{\ql}{{\bf l}}
+        \newcommand{\qm}{{\bf m}}
+        \newcommand{\qn}{{\bf n}}
+        \newcommand{\qo}{{\bf o}}
+        \newcommand{\qp}{{\bf p}}
+        \newcommand{\qq}{{\bf q}}
+        \newcommand{\qr}{{\bf r}}
+        \newcommand{\qs}{{\bf s}}
+        \newcommand{\qt}{{\bf t}}
+        \newcommand{\qu}{{\bf u}}
+        \newcommand{\qv}{{\bf v}}
+        \newcommand{\qw}{{\bf w}}
+        \newcommand{\qx}{{\bf x}}
+        \newcommand{\qy}{{\bf y}}
+        \newcommand{\qz}{{\bf z}}
+    
+        \newcommand{\qA}{{\bf A}}
+        \newcommand{\qB}{{\bf B}}
+        \newcommand{\qC}{{\bf C}}
+        \newcommand{\qD}{{\bf D}}
+        \newcommand{\qE}{{\bf E}}
+        \newcommand{\qF}{{\bf F}}
+        \newcommand{\qG}{{\bf G}}
+        \newcommand{\qH}{{\bf H}}
+        \newcommand{\qI}{{\bf I}}
+        \newcommand{\qJ}{{\bf J}}
+        \newcommand{\qK}{{\bf K}}
+        \newcommand{\qL}{{\bf L}}
+        \newcommand{\qM}{{\bf M}}
+        \newcommand{\qN}{{\bf N}}
+        \newcommand{\qO}{{\bf O}}
+        \newcommand{\qP}{{\bf P}}
+        \newcommand{\qQ}{{\bf Q}}
+        \newcommand{\qR}{{\bf R}}
+        \newcommand{\qS}{{\bf S}}
+        \newcommand{\qT}{{\bf T}}
+        \newcommand{\qU}{{\bf U}}
+        \newcommand{\qV}{{\bf V}}
+        \newcommand{\qW}{{\bf W}}
+        \newcommand{\qX}{{\bf X}}
+        \newcommand{\qY}{{\bf Y}}
+        \newcommand{\qZ}{{\bf Z}}
+        \newcommand{\qzero}{{\bf 0}}
+        \newcommand{\qone}{{\bf 1}}
+        \newcommand{\qdh}{\triangle\qh}
+        \newcommand{\qhh}{\hat\qh}
+        \newcommand{\qdH}{\triangle\qH}
+        \newcommand{\qhH}{\hat\qH}
+        \newcommand{\qdF}{\triangle\qF}
+        \newcommand{\qhF}{\hat\qF}
+        \newcommand{\qbh}{\bar\qh}
+        \newcommand{\qbn}{\bar\qn}
+        \newcommand{\quH}{\underline{\qH}}
+        \newcommand{\quh}{\underline{\qh}}
+        \newcommand{\uh}{\underline{h}}
+        \newcommand{\quY}{\underline{\qY}}
+        \newcommand{\quy}{\underline{\qy}}
+        \newcommand{\uy}{\underline{y}}
+        \newcommand{\quZ}{\underline{\qZ}}
+        \newcommand{\quz}{\underline{\qz}}
+        \newcommand{\uz}{\underline{z}}
+    
+    
+    
+    
+    
+    
+        \newcommand{\qwbE}{\overline{\bf E}}
+        \newcommand{\qwbF}{\overline{\bf F}}
+        \newcommand{\qwbT}{\overline{\bf T}}
+        \newcommand{\qwbR}{\overline{\bf R}}
+    
+        \newcommand{\qDelta}{{\boldsymbol \Delta}}
+        \newcommand{\qPsi}{{\boldsymbol \Psi}}
+        \newcommand{\qPhi}{{\boldsymbol \Phi}}
+        \newcommand{\qXi}{{\boldsymbol \Xi}}
+        \newcommand{\qTheta}{{\boldsymbol \Theta}}
+        \newcommand{\qLambda}{{\boldsymbol \Lambda}}
+        \newcommand{\qSigma}{{\boldsymbol \Sigma}}
+        \newcommand{\qGamma}{{\boldsymbol \Gamma}}
+        \newcommand{\qUpsilon}{{\boldsymbol \Upsilon}}
+        \newcommand{\qOmega}{{\boldsymbol \Omega}}
+        \newcommand{\qPi}{{\boldsymbol \Pi}}
+    
+        \newcommand{\qalpha}{{\boldsymbol \alpha}}
+        \newcommand{\qbeta}{{\boldsymbol \beta}}
+        \newcommand{\qdelta}{{\boldsymbol \delta}}
+        \newcommand{\qlambda}{{\boldsymbol \lambda}}
+        \newcommand{\qgamma}{{\boldsymbol \gamma}}
+        \newcommand{\qepsilon}{{\boldsymbol \epsilon}}
+        \newcommand{\qeta}{{\boldsymbol \eta}}
+        \newcommand{\qnu}{{\boldsymbol \nu}}
+        \newcommand{\qmu}{{\boldsymbol \mu}}
+        \newcommand{\qkappa}{{\boldsymbol \kappa}}
+        \newcommand{\qtau}{{\boldsymbol \tau}}
+        \newcommand{\qxi}{{\boldsymbol \xi}}
+        \newcommand{\qzeta}{{\boldsymbol \zeta}}
+        \newcommand{\qvarepsilon}{{\boldsymbol \varepsilon}}
+        \newcommand{\qomega}{{\boldsymbol \omega}}
+        \newcommand{\qsigma}{{\boldsymbol \sigma}}
+        \newcommand{\qrho}{{\boldsymbol \rho}}
+        \newcommand{\qtheta}{{\boldsymbol \theta}}
+    
+    
+        \newcommand{\tH}{{\tilde{H}}}
+        \newcommand{\talpha}{{\tilde{\alpha}}}
+        \newcommand{\ttau}{{\tilde{\tau}}}
+        \newcommand{\te}{{\tilde{e}}}
+        \newcommand{\tb}{{\tilde{b}}}
+        \newcommand{\tv}{{\tilde{v}}}
+        \newcommand{\trho}{{\tilde{\rho}}}
+        \newcommand{\tvarepsilon}{{\tilde{\varepsilon}}}
+    
+        \newcommand{\tqH}{{\tilde{\qH}}}
+        \newcommand{\tqU}{{\tilde{\qU}}}
+        \newcommand{\tqD}{{\tilde{\qD}}}
+        \newcommand{\tqQ}{{\tilde{\qQ}}}
+        \newcommand{\tqTheta}{{\tilde{\qTheta}}}
+        \newcommand{\tqDelta}{{\tilde{\qDelta}}}
+        \newcommand{\tqPsi}{{\tilde{\qPsi}}}
+        \newcommand{\tqPhi}{{\tilde{\qPhi}}}
+        \newcommand{\tcalqS}{{\tilde{\calqS}}}
+        \newcommand{\tqXi}{{\tilde{\qXi}}}
+        \newcommand{\tqv}{{\tilde{\qv}}}
+        \newcommand{\tqLambda}{{\tilde{\qLambda}}}
+    
+        \newcommand{\bH}{{\bar{H}}}
+        \newcommand{\bqH}{{\bar{\qH}}}
+    
+        \newcommand{\uqB}{{\underline{\qB}}}
+        \newcommand{\uH}{{\underline{H}}}
+        \newcommand{\utH}{{\underline{\tH}}}
+        \newcommand{\ubH}{{\underline{\bH}}}
+        \newcommand{\uR}{{\underline{R}}}
+        \newcommand{\uT}{{\underline{T}}}
+        \newcommand{\uqH}{{\underline{\qH}}}
+        \newcommand{\uqR}{{\underline{\qR}}}
+        \newcommand{\uqT}{{\underline{\qT}}}
+        \newcommand{\ubqH}{{\underline{\bqH}}}
+        \newcommand{\utqH}{{\underline{\tqH}}}
+        \newcommand{\ucalqX}{{\underline{\calqX}}}
+        \newcommand{\uqX}{{\underline{\qX}}}
+    
+        \newcommand{\bbB}{{\mathbb B}}
+        \newcommand{\bbE}{{\mathbb E}}
+        \newcommand{\bbN}{{\mathbb N}}
+        \newcommand{\bbR}{{\mathbb R}}
+        \newcommand{\bbC}{{\mathbb C}}
+        \newcommand{\bbS}{{\mathbb S}}
+        \newcommand{\bbU}{{\mathbb U}}
+        \newcommand{\bbQ}{{\mathbb Q}}
+    
+        \newcommand{\calA}{{\mathcal A}}
+        \newcommand{\calB}{{\mathcal B}}
+        \newcommand{\calC}{{\mathcal C}}
+        \newcommand{\calD}{{\mathcal D}}
+        \newcommand{\calE}{{\mathcal E}}
+        \newcommand{\calF}{{\mathcal F}}
+        \newcommand{\calI}{{\mathcal I}}
+        \newcommand{\calK}{{\mathcal K}}
+        \newcommand{\calL}{{\mathcal L}}
+        \newcommand{\calN}{{\mathcal N}}
+        \newcommand{\calO}{{\mathcal O}}
+        \newcommand{\calP}{{\mathcal P}}
+        \newcommand{\calQ}{{\mathcal Q}}
+        \newcommand{\calS}{{\mathcal S}}
+        \newcommand{\calV}{{\mathcal V}}
+        \newcommand{\calX}{{\mathcal X}}
+        \newcommand{\calCN}{{\mathcal{N}_{\mathbb C}}}
+    
+    
+    
+        \newcommand{\calqB}{\boldsymbol{\cal B}}
+        \newcommand{\calqX}{\boldsymbol{\cal X}}
+        \newcommand{\calqS}{\boldsymbol{\cal S}}
+    
+        \newcommand{\dom}{{\sf dom}}
+        \newcommand{\epi}{{\sf epi}}
+        \newcommand{\supp}{{\sf supp}}
+        \newcommand{\tr}{{\sf tr}}
+        \newcommand{\Ex}{{\sf E}}
+        \newcommand{\rank}{{\sf rank}}
+        \newcommand{\Varx}{{\sf Var}}
+    
+        \newcommand*{\argmin}{\operatornamewithlimits{argmin}\limits}
+        \newcommand*{\argmax}{\operatornamewithlimits{argmax}\limits}
+    
+        \newcommand{\sfj}{{\sf j}}
+    
+        \newcommand{\sfC}{{\sf C}}
+        \newcommand{\sfF}{{\sf F}}
+        \newcommand{\sfX}{{\sf X}}
+        \newcommand{\sfZ}{{\sf Z}}
+        \newcommand{\sfqB}{\boldsymbol{\sf B}}
+        \newcommand{\sfqX}{\boldsymbol{\sf X}}
+        \newcommand{\sfqx}{\boldsymbol{\sf x}}
+    
+    
+    
+    
+    
+    
+        \newcommand{\aaa}{\buildrel{\circ}\over{a}}
+        \newcommand{\aeta}{\buildrel{\circ}\over{\eta}}
+        \newcommand{\arho}{\buildrel{\circ}\over{\rho}}
+        \newcommand{\aalpha}{\buildrel{\circ}\over{\alpha}}
+        \newcommand{\ateta}{\buildrel{\circ}\over{\tilde\eta}}
+        \newcommand{\atalpha}{\buildrel{\circ}\over{\tilde\alpha}}
+        \newcommand{\atrho}{\buildrel{\circ}\over{\tilde\rho}}
+    
+    
+        \newcommand{\bfbl}[1]{\bf \color{blue}#1}
+        \newcommand{\bl}[1]{\color{blue}#1}
+        \newcommand{\bfrl}[1]{\bf \color{red}#1}
+        \newcommand{\rl}[1]{\color{red}#1}
+        \newcommand{\bfbrl}[1]{\bf \color{BrickRed}#1}
+        \newcommand{\bfbbl}[1]{\bf \color{BlueViolet}#1}
+
+
+
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
