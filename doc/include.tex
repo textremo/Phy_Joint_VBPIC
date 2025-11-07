@@ -33,6 +33,11 @@
 \usepackage{algorithm, algpseudocode} 	% 伪代码
 \usepackage{underscore} 				% 下划线
 \usepackage{ulem} 					% 文字划线等
+\usepackage{svg} 								% 支持SVG图片
+\usepackage{bm}									%
+\usepackage{enumitem}							% item支持更多格式
+\usepackage[numbers,sort&compress]{natbib}		% 文献引用连号时[1,2,3]变成[1-3]
+\usepackage{breqn}								% 公式过长自动换行
 
 %-----------------------------------------------
 % page settings
@@ -42,10 +47,9 @@
 % 定义页眉风格
 \pagestyle{fancy} 
 \fancyhead[L]{} % 设置左页眉
-\fancyhead[C]{Joint Channle Estimation \& Symbol Detection} % 设置中页眉
+\fancyhead[C]{Qu's Joint Channle Estimation \& Symbol Detection} % 设置中页眉
 \fancyhead[R]{} % 设置右页眉
 \renewcommand{\headrulewidth}{0.4pt} % 设置页眉线宽度（可选）
-
 
 %-----------------------------------------------
 % set math notations
@@ -64,6 +68,9 @@
 
 %-----------------------------------------------
 % 其他自定义设置
+% 覆盖 breqn 的编号设置
+\renewcommand{\theequation}{\arabic{equation}}
+
 % 定义不同宽度的列类型
 %\newcolumntype{TBX}{>{\hsize=1\hsize\centering\arraybackslash}X}
 %\newcolumntype{MyCol}{>{\hsize=1.5\hsize\centering\arraybackslash}X}
@@ -97,3 +104,11 @@
 \makeatother
 % 伪代码——注释
 \renewcommand{\algorithmiccomment}[1]{\hfill // #1}
+
+
+%% 自定义字符
+\newcommand{\T}{^{\mathrm{T}}} % 转置
+\newcommand{\HT}{^{\mathrm{H}}} % 共轭转置
+\newcommand{\diag}{{\sf diag}} % 生成对角矩阵
+\newcommand{\off}{{\sf off}} % 对角元素置0
+\newcommand{\vect}{{\sf vec}} % 向量化

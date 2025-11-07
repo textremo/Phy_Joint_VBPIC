@@ -1,0 +1,66 @@
+\documentclass{article}
+
+\input{../include}
+\input{../authors}
+
+% version
+\newcommand{\version}{v1.0.2}
+
+%-----------------------------------------------
+% title
+% 
+\title{
+	\Huge \textbf{Variational Bayes} \\[1em]
+}
+\author{\qxw}
+\date{}
+
+%-----------------------------------------------
+% document
+%
+\begin{document}
+% \begin{CJK}{UTF8}{gbsn} % 不支持中文页眉而放弃
+
+\maketitle
+
+
+\section{System Model}
+In a telecommunication system, we can assume
+\[
+y = H(x_d + x_p) + z
+\]
+where $y$ is the received signal, $x_p$ is the pilot and $x_d$ is data, and $z\in \mathcal{CN}(0, \sigma^2)$. 
+
+\section{Proposed Method}
+\subsection{Prime Variational Bayes}
+The target is to find the channel and the symbol to maximize the posterior, i.e.,
+\begin{equation}
+\begin{split}
+p(x_d, H; y, \sigma^2, x_p) &= \mathop{\arg\max}\limits_{x\in \Omega}  p(y|x_d, y|H; \sigma^2, x_p) p(x_d)
+\end{split}
+\end{equation}
+Here, we use a distribution family $q$ to approximate the distribution above.
+\[
+p(x_d, H; y, \sigma^2, x_p) \propto q(x_d)q(H|\gamma^{-1})q(\gamma)
+\]
+where $x_d\in \mathcal{CN}(0, 1)$, $H\in \mathcal{CN}(0, \gamma^{-1})$, and $p(\gamma)= gamma(\gamma;a, b)$. Here, we use the Gamma distribution because it is the conjugate prior of the Gaussian distribution.
+
+The algorithm structure is given as below:
+\begin{breakablealgorithm}
+	\begin{algorithmic}[1] %每行显示行号
+		\For{$t\in{0,\cdots,T-1}$}
+			\State Update q($x_d$)
+			\State Update q(H)
+			\State Update q($\gamma$)
+		\EndFor
+		\State \Return{$q(x)$}
+	\end{algorithmic}
+\end{breakablealgorithm}
+\subsection{GNN}
+In the primary Variational Bayes, we assume $q$ follows a Gaussian distribution, we use GNN to simulate the distribution to improve the performance.
+
+
+\newpage
+\bibliographystyle{IEEEtran}
+\bibliography{../reference}
+\end{document}
