@@ -378,9 +378,13 @@ The update is computed as follows
 	&\left(\hat{\alpha}^{(t+1)}\bm\Sigma_h^{(t+1)}\bm\Phi_p^H\bm y_p\right)^H\bm\Sigma_h^{(t+1)^{-1}}\bm h - \notag \\
 	&\bm h^H\bm\Sigma_h^{(t+1)^{-1}}\bm h + \text{const}
 	\end{align}
-	Please note that the Hermitian matrix $\bm\Sigma_h^{(t+1)^H} = \bm\Sigma_h^{(t+1)}$
+	Please note that the Hermitian matrix $\bm\Sigma_h^{(t+1)^H} = \bm\Sigma_h^{(t+1)}$. Therefore, the mean is 
+	\[
+	\bm\mu^{(t+1)} = \hat{\alpha}^{(t+1)}\bm\Sigma_h^{(t+1)} \bm\Phi_p^H\bm y_p
+	\]
+	
     
-    \item Update $q(\alpha)$
+    \item Update $q(\gamma)$
     \begin{align}
     \text{ln}q^{(t+1)}(\gamma) &\propto \mathbb{E}_{q^{(t)}_{-\gamma}}\{\text{ln}p(y,\Theta)\} \\
     &\propto \mathbb{E}_{q^{(t)}_{-\gamma}}\{lnp(y|h,\alpha) + lnp(h|\gamma) + lnp(\gamma) + lnp(\alpha)\} \\
@@ -400,6 +404,43 @@ The update is computed as follows
     c^{(0)} &= d^{(0)} = 1
     \end{align}
  
+\end{enumerate}
+\subsubsection{Simplified OTFS Channel Estimation using VB}
+If we assume the noise is known to us, the estimation process can be simplified as,
+\begin{enumerate}[label=\arabic*)]
+ \item Update $q(h)$
+	\begin{align}
+	q^{(t+1)}(h) &\propto exp( \mathbb{E}_{q^{(t)}_{-h}}[\text{ln}p(y,\Theta)] \} ) \\
+	lnq^{(t+1)}(h) &\propto \mathbb{E}_{q^{(t)}_{-h}}\{\text{ln}p(y,\Theta)\} \\
+	&\propto \mathbb{E}_{q^{(t)}_{-h}}\{lnp(y|h,\alpha)\} + \mathbb{E}_{q^{(t)}_{-h}}\{lnp(h|\gamma^{(t)})\} \\
+	&\propto \alpha\bm h^H\bm\Phi_p^H\bm y_p + \alpha\bm y_p^H\bm\Phi_p\bm h - \bm h^H(\alpha\bm\Phi_h^H\bm\Phi_h + \text{diag}(\bm\gamma^{(t)})\bm h + \text{const}
+	\end{align}    
+	As in the assumption, $\bm h$ follows Guassian distribution, i.e.,
+	\begin{align}
+	q^{(t+1)}(\bm h) &= \mathcal{CN}\left( \bm h | \bm\mu_h^{(t+1)}, \bm\Sigma_h^{(t+1)} \right) \\ 
+	lnq^{(t+1)}(\bm h) &\propto -(\bm h - \bm\mu_h^{(t+1)})^H\bm\Sigma_h^{(t+1)^{-1}}(\bm h - \bm\mu_h^{(t+1)}) \\
+	&\propto \underbrace{\bm h^H\bm\Sigma_h^{(t+1)^{-1}}\bm\mu_h^{(t+1)} + \bm\mu_h^{(t+1)^H}\bm\Sigma_h^{(t+1)^{-1}}\bm h}_{linear} + \underbrace{\bm h^H\bm\Sigma_h^{(t+1)^{-1}}\bm h}_{quadratic} + \text{const}
+	\end{align}
+	Here, we can see that the covariance is 
+	\begin{align}
+	\bm\Sigma_h^{(t+1)} &= \alpha\bm\Phi_h^H\bm\Phi_h + \text{diag}(\bm\gamma^{(t)}) \\
+	\bm\mu^{(t+1)} &= \alpha\bm\Sigma_h^{(t+1)} \bm\Phi_p^H\bm y_p
+	\end{align}
+	
+	\item Update $q(\gamma)$
+    \begin{align}
+    \text{ln}q^{(t+1)}(\gamma) &\propto \mathbb{E}_{q^{(t)}_{-\gamma}}\{\text{ln}p(y,\Theta)\} \\
+    &\propto \mathbb{E}_{q^{(t)}_{-\gamma}}\{lnp(y|h,\alpha) + lnp(h|\gamma) + lnp(\gamma) + lnp(\alpha)\} \\
+    &\propto \mathbb{E}_{q^{(t)}_{-\gamma}}\{lnp(h|\gamma) + lnp(\gamma)\} \\
+    &\propto \sum_{l=0}^{P_\max-1} \left( ln(\gamma_l) - \gamma_l\Vert h_l^{(t+1)} \Vert^2 + (c-1)ln\gamma_l -d\gamma_l\right) \\
+    &\propto \sum_{l=0}^{P_\max-1} \left( \underbrace{(c+1-1)}_{c^{t+1}}ln(\gamma_l) - \gamma_l \underbrace{(d + \Vert h_l^{(t+1)} \Vert^2)}_{d^{(t+1)}} \right)
+    \end{align}
+    where $\Vert h_l^{(t+1)} \Vert^2 = \Sigma_{h_l}^{t+1} + |\mu_{h_l}^{t+1}|^2$.
+    Therefore,
+    \begin{equation}
+    \gamma = \text{diag}( \frac{c_0^{t+1}}{d_0^{(t+1)}}, \cdots,  \frac{c_{P_\max}^{t+1}}{d_{P_\max}^{(t+1)}})
+    \end{equation}	
+	
 \end{enumerate}
 
 
