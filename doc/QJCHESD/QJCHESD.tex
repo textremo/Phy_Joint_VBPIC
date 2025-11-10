@@ -45,7 +45,16 @@ The variance is
 \sigma^2_x = \frac{a}{b^2}
 \end{equation}
 \subsection{Complex Gaussian Distribution}
-For a complex Gaussian distributed variable $x = [x_0, \cdots, x_{N-1}]$, its PDF is
+\begin{itemize}
+\item For a complex Gaussian distributed variable $x$, its PDF is
+\[
+p(x) = \frac{1}{\pi\sigma^2}e^{-\frac{|x-\mu|^2}{\sigma^2}}
+\]
+\begin{align}
+lnp(x) \propto  -ln(\sigma^2) - \sigma^{-2}|x-\mu|^2
+\end{align}
+
+\item For a complex Gaussian distributed variable vector $x = [x_0, \cdots, x_{N-1}]$, its PDF is
 \[
 p(x) = \frac{1}{\pi^N det(\Sigma)}e^{-(x-\mu)^H\Sigma^{-1}(x-\mu)}
 \]
@@ -53,6 +62,10 @@ p(x) = \frac{1}{\pi^N det(\Sigma)}e^{-(x-\mu)^H\Sigma^{-1}(x-\mu)}
 lnp(x) \propto  -lndet(\Sigma) - (x-\mu)^H\Sigma^{-1}(x-\mu)
 \end{align}
 where $\Sigma$ is the covariance matrix.
+\end{itemize}
+
+
+
 
 \section{Variational Bayes}
 For a telecommunication system, we have
@@ -236,7 +249,7 @@ where $x_p$ is the pilot symbol with energy $E_p$, $k_p = \lfloor (K-1)/2 \rfloo
 \subsection{OTFS Channel Estimation using VB}
 We assume the channel follows the Gaussian distribution, i.e.,
 \begin{equation}
-p(h|\gamma) = \prod_{i=0}^{P_{\max}-1}p(h_i|\gamma_i) = \prod_{i=0}^{P-1}\mathcal{CN}(h_i;0, \gamma_i^{-1}),
+p(h|\gamma) = \prod_{i=0}^{P_{\max}-1}p(h_i|\gamma_i) = \prod_{i=0}^{P_\max-1}\mathcal{CN}(h_i;0, \gamma_i^{-1}),
 \end{equation}
 where $P_\max=(l_\max+1)(2k_\max+1)$, $\gamma=[\gamma_0,\gamma_1,\cdots,\gamma_{P_\max-1}]$ is the precision vector of $h$. $\gamma$ follows the Gamma distribution, i.e.,
 \begin{equation}
@@ -325,12 +338,12 @@ The update is computed as follows
     	\begin{align}
     	lnq^{(t+1)}(\alpha) &\propto Zln(\alpha) - \alpha\left( \Vert \bm y_p - \bm\Phi_p \bm\mu_h\Vert^2 + \text{tr}(\bm\Phi_p^H\bm\Phi_p\bm\Sigma_h) \right)  + lnp(\alpha) \\
     	&\propto Zln(\alpha) - \alpha( \Vert \bm y_p - \bm\Phi_p \bm\mu_h\Vert^2 + \text{tr}(\bm\Phi_p^H\bm\Phi_p\bm\Sigma_h))  + (a-1)ln(\alpha) - b\alpha \\
-    	&= (a + Z -1)ln(\alpha) - \alpha(b+ \Vert \bm y_p - \bm\Phi_p \bm\mu_h\Vert^2 + \text{tr}(\bm\Phi_p^H\bm\Phi_p\bm\Sigma_h)) 
+    	&\propto (a + Z -1)ln(\alpha) - \alpha(b+ \Vert \bm y_p - \bm\Phi_p \bm\mu_h\Vert^2 + \text{tr}(\bm\Phi_p^H\bm\Phi_p\bm\Sigma_h)) 
     	\end{align}
     	Therefore,
     	\begin{align}
     	a^{(t+1)} &= a^{(t)} + z \\
-    	b^{(t+1)} &= b^{(t)} + + \Vert \bm y_p - \bm\Phi_p \bm\mu_h^{(t)})\Vert^2 + \text{tr}(\bm\Phi_p^H\bm\Phi_p\bm\Sigma_h^{(t)})
+    	b^{(t+1)} &= b^{(t)} + \Vert \bm y_p - \bm\Phi_p \bm\mu_h^{(t)})\Vert^2 + \text{tr}(\bm\Phi_p^H\bm\Phi_p\bm\Sigma_h^{(t)})
     	\end{align}
     	where $\Sigma_h^{(t)}$ and $\mu_h^{t}$ are the posterior covariance matrix and the posterior mean vector of $h^{(t)}$, which are both adjusted after updating $q(h)$.
     	The mean of $\alpha$ is
@@ -365,9 +378,28 @@ The update is computed as follows
 	&\left(\hat{\alpha}^{(t+1)}\bm\Sigma_h^{(t+1)}\bm\Phi_p^H\bm y_p\right)^H\bm\Sigma_h^{(t+1)^{-1}}\bm h - \notag \\
 	&\bm h^H\bm\Sigma_h^{(t+1)^{-1}}\bm h + \text{const}
 	\end{align}
-	Please note that $\bm\Sigma_h^{(t+1)^H} = \bm\Sigma_h^{(t+1)}$
+	Please note that the Hermitian matrix $\bm\Sigma_h^{(t+1)^H} = \bm\Sigma_h^{(t+1)}$
     
-    \item 3
+    \item Update $q(\alpha)$
+    \begin{align}
+    \text{ln}q^{(t+1)}(\gamma) &\propto \mathbb{E}_{q^{(t)}_{-\gamma}}\{\text{ln}p(y,\Theta)\} \\
+    &\propto \mathbb{E}_{q^{(t)}_{-\gamma}}\{lnp(y|h,\alpha) + lnp(h|\gamma) + lnp(\gamma) + lnp(\alpha)\} \\
+    &\propto \mathbb{E}_{q^{(t)}_{-\gamma}}\{lnp(h|\gamma) + lnp(\gamma)\} \\
+    &\propto \sum_{l=0}^{P_\max-1} \left( ln(\gamma_l) - \gamma_l\Vert h_l^{(t+1)} \Vert^2 + (c-1)ln\gamma_l -d\gamma_l\right) \\
+    &\propto \sum_{l=0}^{P_\max-1} \left( \underbrace{(c+1-1)}_{c^{t+1}}ln(\gamma_l) - \gamma_l \underbrace{(d + \Vert h_l^{(t+1)} \Vert^2)}_{d^{(t+1)}} \right)
+    \end{align}
+    where $\Vert h_l^{(t+1)} \Vert^2 = \Sigma_{h_l}^{t+1} + |\mu_{h_l}^{t+1}|^2$.
+    Therefore,
+    \begin{equation}
+    \gamma = \text{diag}( \frac{c_0^{t+1}}{d_0^{(t+1)}}, \cdots,  \frac{c_{P_\max}^{t+1}}{d_{P_\max}^{(t+1)}})
+    \end{equation}
+    
+    \item Initial values
+    \begin{align}
+    a^{(0)} &= b^{(0)} = 1 \\
+    c^{(0)} &= d^{(0)} = 1
+    \end{align}
+ 
 \end{enumerate}
 
 
