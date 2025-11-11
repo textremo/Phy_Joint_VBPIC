@@ -17,3 +17,10 @@ This repository offers a joint channel estimation and symbol detection implement
 ## How to use
 * `CPE`: intially estimate the channel (`his`: delay varies slower than Doppler)
 * `JPIC`: jointly estimate symbols and channel (`his`: delay varies slower than Doppler)
+
+## Sample
+- `VB`: variational Bayes
+  - `testVbOtfsEmbedChe`: test VB on OTFS (Embed) channel estimation
+  - `testVbOtfsEmbedCheSimp`: test VB on OTFS (Embed) channel estimation (simplified)
+
+## Test
