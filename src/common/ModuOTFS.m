@@ -6,7 +6,9 @@ classdef ModuOTFS < Modu
         kis = NaN;
         % area division
         pilCheRng = NaN;       % pilot CHE range [k0, kN, l0, lN] (k0->kN: k range, l0-lN: l range)            
-        
+        pilCheRng_klen = 0;
+        pilCheRng_len = 0;
+
         % others
         H0 = NaN;
         Hv0 = NaN;
@@ -34,12 +36,14 @@ classdef ModuOTFS < Modu
                 % pilot CHE range
                 if self.modu ~= self.MODU_OTFS_FULL
                     refSig = self.refSig;
-                    if self.modu == MODU_OTFS_SP_REP_DELAY
+                    if self.modu == self.MODU_OTFS_SP_REP_DELAY
                         refSig = self.refSig(:, 1:lmax+1);
                     end
                     [pk0, pl0] = find(abs(refSig) > eps, 1);
                     [pkN, plN] = find(abs(refSig) > eps, 1, "last");
                     self.pilCheRng = [max(pk0-kmax, 1), min(pkN+kmax, self.K), pl0, min(plN + lmax, self.L)];
+                    self.pilCheRng_klen = self.pilCheRng(2) - self.pilCheRng(1) + 1;
+                    self.pilCheRng_len = self.pilCheRng_klen*(self.pilCheRng(4) - self.pilCheRng(3) + 1);
                 end
                 % H0
                 self.H0 = zeros(self.sig_len, self.sig_len);
@@ -130,8 +134,43 @@ classdef ModuOTFS < Modu
         %{
         refSig to Phi
         %}
-        function Phi = ref2Phi()
+        function Phi = ref2Phi(self)
+            if self.modu == self.MODU_OTFS_FULL
+                error("Not refence signal is given on the full data frame type!!!");
+            end
             
+            Phi = zeros(self.pilCheRng_len, self.pmax);
+            for yk = self.pilCheRng(1):self.pilCheRng(2)
+                for yl = self.pilCheRng(3):self.pilCheRng(4)
+                    Phi_ri = (yl - self.pilCheRng(3))*self.pilCheRng_klen + (yk - self.pilCheRng(1) + 1);
+                    for p_id = 1:self.pmax
+                        li = self.lis(p_id);
+                        ki = self.kis(p_id);
+                        % x(k, l)
+                        xl = yl - li;
+                        xk = yk - ki;
+                        try
+                            if abs(self.refSig(xk, xl)) > eps
+                                % exponential part (pss_beta)
+                                if self.isPulBiort()
+                                    pss_beta = exp(-2j*pi*li/self.L*ki/self.K);
+                                elseif self.isPulRecta()
+                                    pss_beta = exp(2j*pi*(yl-li-1)/self.L*ki/self.K);     % here, you must use `yl-li` instead of `xl` or there will be an error
+                                end
+                                Phi(Phi_ri, p_id) = self.refSig(xk, xl)*pss_beta;
+                            end
+                        catch
+                            disp("Debug: index error!!!");
+                        end
+                    end
+                end
+            end
+        end
+
+        %{
+        X to Phi
+        %}
+        function Phi = X2Phi(self)
         end
     end
 end
