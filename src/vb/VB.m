@@ -10,6 +10,7 @@ classdef VB < Modu
 
         %{
         channel estimation
+        @Ydd:           Rx in the DD domain
         <OPT>
         @No:            the noise power
         @min_var:       the minimal variance.
@@ -17,7 +18,11 @@ classdef VB < Modu
         @es:            early stop
         @es_thres:      early stop threshold (abs)
         %}
-        function che(self, varargin)
+        function h_mean = che(self, Ydd, varargin)
+            if self.modu ~= self.MODU_OTFS_EMBED
+                error("CHE is not supported for non-embedded OTFS!!!");
+            end
+            
             % load optional inputs 
             inPar = inputParser;
             addParameter(inPar, "No",         NaN);
@@ -35,13 +40,46 @@ classdef VB < Modu
             es_thres    = inPar.Results.es_thres;
 
             % init parameters
-            a = 1; b = 1; c = 1; d = 1;
-            alpha = 1;
+            Yp = Ydd(self.pilCheRng(1):self.pilCheRng(2), self.pilCheRng(3):self.pilCheRng(4));
+            yp = Yp(:);
+            P = self.ref2Phi();
+            PtP = P'*P;
+            Pty = P'*yp;
+            a = 1; b = 1; c = ones(self.pmax, 1); d = ones(self.pmax, 1);
+            alpha = 1; gamma = ones(self.pmax, 1); h_vari = inv(PtP + eye(self.pmax)); h_mean = h_vari*Pty;
+            update_alpha = false;
             if ~isnan(No)
                 alpha = 1/No;
+            else
+                alpha = 1;
+                update_alpha = true;
             end
+            
+            % VB CHE
+            for t = 1:iter_num
+                % update alpha
+                if update_alpha
+                end
 
-            Phi_p = self.ref2Phi();
+                % update h
+                h_vari = inv(alpha*PtP + diag(gamma));
+                h_mean = alpha*h_vari*Pty;
+                % update gamma
+                c = c + 1;
+                d = d + diag(h_vari) + abs(h_mean).^2;
+                gamma_new = c./d;
+
+                % early stop
+                if es
+                    if sum(abs(gamma_new - gamma).^2)/sum(abs(gamma).^2) < es_thres
+                        break;
+                    end
+                end
+                gamma = gamma_new;
+                
+            end
+            
+
         end
     end
 end
