@@ -31,6 +31,7 @@ rg_rx = otfs.demodulate();
 
 
 %% VB
+
 dataLocs = rg.getContentDataLocsMat();
 refSig = zeros(N, M); refSig(4,4) = (1+1j)*sqrt(pil_pow/2);
 csiLim = [lmax, kmax];
@@ -46,12 +47,14 @@ his_est1 = his_est1.';
 his = Utils.realH2Hfull(kmax, lmax, his, lis, kis);
 his_est0 = Utils.realH2Hfull(kmax, lmax, his_est0, lis_est0, kis_est0);
 
-% Y_DD_cherng = Y_DD(vb.pilCheRng(1):vb.pilCheRng(2), vb.pilCheRng(3):vb.pilCheRng(4));
-% yDD_cherng = Y_DD_cherng(:);
+hm = abs(his) > 0;
 
-% Phi_p = vb.ref2Phi();
-% yDD_cherng_est = Phi_p*(his.');
-% if max(abs(yDD_cherng - yDD_cherng_est)) < 1e-14
-%     fprintf(": pass at %e.\n", max(abs(yDD_cherng - yDD_cherng_est)));
-% end
+est0_diff = abs(his_est0(hm) - his(hm));
+est1_diff = abs(his_est1(hm) - his(hm));
+est1_err = abs(his_est1(~hm));
+
+fprintf(" - threshold diff: %e\n", max(est0_diff));
+disp(" - vb");
+fprintf("    diff: %e\n", max(est1_diff));
+fprintf("    err: %e\n", max(est1_err));
 
