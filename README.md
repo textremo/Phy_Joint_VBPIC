@@ -18,6 +18,32 @@ This repository offers a joint channel estimation and symbol detection implement
 * `CPE`: intially estimate the channel (`his`: delay varies slower than Doppler)
 * `JPIC`: jointly estimate symbols and channel (`his`: delay varies slower than Doppler)
 
+## Config
+* `OTFS`: we support 4 types: `FULL`, `EMBED`, `SP`, `SP_REP_DELAY`
+    | Field | Desc | Notes |
+    |-|----------|-|
+    | name | case name |  |
+    | fs | sampling frequency(GHz) | |
+    | freq_sp | subcarrier spacing(kHz) | |
+    | M | subcarrier number | i.e., L (delay grid number) |
+    | N | timeslot number | i.e., K (Doppler grid number) |
+    | SNR_d | data SNR(dB) | over the noise |
+    | SNR_p | pilot SNR(dB) | over the noise |
+    | N_frames | simulation frames over each SNR | |
+    | M_mod | M-ary QAM | |
+    | M_bits | the bit number for each symbol |  |
+    | constel | constellation | |
+    | constel_real | constellation(real) | |
+    | p | the path number | |
+    | lmax | the maximal delay index | |
+    | kmax | the maximal Doppler index | |
+    | pk_len | the pilot length on the Doppler axis | |
+    | pl_len | the pilot length on the delay axis | |
+    | gkn_len | the guard length on the Doppler axis(neg) | |
+    | gkp_len | the guard length on the Doppler axis(pos) | |
+    | gln_len | the guard length on the delay axis(neg) | |
+    | glp_len | the guard length on the delay axis(pos) | |
+
 ## Sample
 - `VB`: variational Bayes
   - `testVbOtfsEmbedChe`: test VB on OTFS (Embed) channel estimation
