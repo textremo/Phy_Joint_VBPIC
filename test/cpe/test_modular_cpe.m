@@ -66,7 +66,7 @@ his_full_diff = abs(his_full_est - his_full);
 [his_full_est1, his_full_est1_var, his_mask] =  cpe.estPaths(Y_DD, "is_all", true);
 lis_full_est1 = kron(0:lmax, ones(1, 2*kmax + 1));          % the delays on all possible paths
 kis_full_est1 = repmat(-kmax:kmax, 1, lmax+1);     
-his_full_diff1 = abs(his_full_est1 - his_full_est);
+his_full_diff1 = abs(his_full_est1(:) - his_full_est(:));
 
 fprintf("- CPE threshold (power): %f\n", cpe.thres)
 fprintf("  - CHE result compare\n");
