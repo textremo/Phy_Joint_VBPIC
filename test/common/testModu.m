@@ -17,12 +17,17 @@ kis = repmat(-kmax:kmax, 1, lmax+1);
 h = [0, 0, 1, 0, 2, 0, 0, 0, 0];
 
 try
-    modu = Modu(Modu.MODU_OTFS_FULL, Modu.FT_CP, Modu.PUL_RECTA, nTimeslot, nSubcarr, dataLocs, refSig);
+    modu = Modu(Modu.MODU_OTFS_FULL, Modu.FT_CP, Modu.PUL_RECTA, nTimeslot, nSubcarr);
+    modu.setDataLoc(dataLocs);
+    modu.setRef(refSig);
 catch
     disp("        - illegal refSig pass.");
 end
-modu = Modu(Modu.MODU_OTFS_FULL, Modu.FT_CP, Modu.PUL_RECTA, nTimeslot, nSubcarr, dataLocs);
-modu = Modu(Modu.MODU_OTFS_EMBED, Modu.FT_CP, Modu.PUL_RECTA, nTimeslot, nSubcarr, dataLocs, refSig, csiLim);
+modu = Modu(Modu.MODU_OTFS_FULL, Modu.FT_CP, Modu.PUL_RECTA, nTimeslot, nSubcarr);
+modu.setDataLoc(dataLocs);
+modu = Modu(Modu.MODU_OTFS_EMBED, Modu.FT_CP, Modu.PUL_RECTA, nTimeslot, nSubcarr, csiLim);
+modu.setDataLoc(dataLocs);
+modu.setRef(refSig);
 disp("        - all pass.");
 %{
 case 02 - constel
@@ -54,8 +59,10 @@ kis = repmat(-kmax:kmax, 1, lmax+1);
 %h = [0, 0, 1+2j, 0, 2+3j, 0, 0, 0, 0];h = h.';
 h = randn(9,1) + randn(9,1)*1j;
 
-Modu = Modu(Modu.MODU_OTFS_EMBED, Modu.FT_CP, Modu.PUL_RECTA, nTimeslot, nSubcarr, dataLocs, refSig, csiLim);
-[H, Hv] = Modu.h2H(h);
+modu = Modu(Modu.MODU_OTFS_EMBED, Modu.FT_CP, Modu.PUL_RECTA, nTimeslot, nSubcarr, csiLim);
+modu.setDataLoc(dataLocs);
+modu.setRef(refSig);
+[H, Hv] = modu.h2H(h);
 
 rg = OTFSResGrid(nSubcarr, nTimeslot);
 rg.setPulse2Recta();
@@ -75,11 +82,11 @@ fprintf("     21 (refSig)");
 otfs.passChannel(0);
 rg_rx = otfs.demodulate();
 Y_DD = rg_rx.getContent();
-Y_DD_cherng = Y_DD(Modu.pilCheRng(1):Modu.pilCheRng(2), Modu.pilCheRng(3):Modu.pilCheRng(4));
+Y_DD_cherng = Y_DD(modu.pilCheRng(1):modu.pilCheRng(2), modu.pilCheRng(3):modu.pilCheRng(4));
 yDD_cherng = Y_DD_cherng(:);
 
 
-Phi_p = Modu.ref2Phi();
+Phi_p = modu.ref2Phi();
 yDD_cherng_est = Phi_p*h;
 if max(abs(yDD_cherng - yDD_cherng_est)) < 1e-14
     fprintf(": pass at %e.\n", max(abs(yDD_cherng - yDD_cherng_est)));

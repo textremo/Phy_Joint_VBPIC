@@ -88,14 +88,12 @@ classdef Modu < dynamicprops
         @nTimeslot:      timeslot number
         @lmax:           the maximal delay index
         @nSubcarr:       subcarrier number
-        @dataLocs:       data locations, a 01 matrix of [N, M] or [K, L]
         <OPT>
-        @refSig:         the reference sigal of [N, M] or [K, L], 0 at non-ref locations
         @csiLim:         CSI limitation
                          1)
                          2) OTFS: [lmax, kmax]
         %}
-        function self = Modu(modu, frame, pul, nTimeslot, nSubcarr, dataLocs, varargin)
+        function self = Modu(modu, frame, pul, nTimeslot, nSubcarr, varargin)
             if ~ismember(modu, self.MODUs)
                 error("The modulation type is not supported!!!");
             end
@@ -118,17 +116,9 @@ classdef Modu < dynamicprops
                 self.K = nTimeslot;
                 self.L = nSubcarr;
             end
-            self.dataLocs = dataLocs;
             self.sig_len = nTimeslot*nSubcarr;
-            self.data_len = sum(dataLocs, "all");
             if length(varargin) >= 1
-                self.refSig = varargin{1};
-                if modu == self.MODU_OTFS_FULL
-                    error("Full data does not support any reference signal!!!");
-                end
-            end
-            if length(varargin) >= 2
-                self.csiLim = varargin{2};
+                self.csiLim = varargin{1};
             end
 
             %--------------------------------------------------------------
@@ -139,18 +129,6 @@ classdef Modu < dynamicprops
                 self.pmax = (lmax+1)*(2*kmax+1); 
                 self.lis = kron(0:lmax, ones(1, 2*kmax+1));
                 self.kis = repmat(-kmax:kmax, 1, lmax+1);
-                % pilot CHE range
-                if self.modu ~= self.MODU_OTFS_FULL
-                    refSig = self.refSig;
-                    if self.modu == self.MODU_OTFS_SP_REP_DELAY
-                        refSig = self.refSig(:, 1:lmax+1);
-                    end
-                    [pk0, pl0] = find(abs(refSig) > eps, 1);
-                    [pkN, plN] = find(abs(refSig) > eps, 1, "last");
-                    self.pilCheRng = [max(pk0-kmax, 1), min(pkN+kmax, self.K), pl0, min(plN + lmax, self.L)];
-                    self.pilCheRng_klen = self.pilCheRng(2) - self.pilCheRng(1) + 1;
-                    self.pilCheRng_len = self.pilCheRng_klen*(self.pilCheRng(4) - self.pilCheRng(3) + 1);
-                end
                 % H0
                 self.H0 = zeros(self.sig_len, self.sig_len);
                 self.Hv0 = zeros(self.sig_len, self.sig_len);
@@ -177,6 +155,41 @@ classdef Modu < dynamicprops
             end
             
         end
+    
+        %{
+        set the data location
+        @dataLocs:       data locations, a 01 matrix of [N, M] or [K, L]
+        %}
+        function setDataLoc(self, dataLocs)
+            self.dataLocs = dataLocs;
+            self.data_len = sum(dataLocs, "all");
+        end
+
+        %{
+        set the reference signal
+        @refSig:         the reference sigal of [N, M] or [K, L], 0 at non-ref locations
+        %}
+        function setRef(self, refSig)
+            self.refSig = refSig;
+            if self.modu == self.MODU_OTFS_FULL
+                error("Full data does not support any reference signal!!!");
+            end
+            
+            % pilot CHE range
+            if ~isnan(self.csiLim)
+                lmax = self.csiLim(1); kmax = self.csiLim(2);
+                refSig = self.refSig;
+                if self.modu == self.MODU_OTFS_SP_REP_DELAY
+                    refSig = self.refSig(:, 1:lmax+1);
+                end
+                [pk0, pl0] = find(abs(refSig) > eps, 1);
+                [pkN, plN] = find(abs(refSig) > eps, 1, "last");
+                self.pilCheRng = [max(pk0-kmax, 1), min(pkN+kmax, self.K), pl0, min(plN + lmax, self.L)];
+                self.pilCheRng_klen = self.pilCheRng(2) - self.pilCheRng(1) + 1;
+                self.pilCheRng_len = self.pilCheRng_klen*(self.pilCheRng(4) - self.pilCheRng(3) + 1);
+            end
+        end
+
 
         %{
         set the constellation

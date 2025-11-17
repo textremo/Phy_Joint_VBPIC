@@ -3,8 +3,8 @@ classdef VB < Modu
         %{
         constructor
         %}
-        function self = VB(modu, frame, pul, nTimeslot, nSubcarr, dataLocs, varargin)
-            self = self@Modu(modu, frame, pul, nTimeslot, nSubcarr, dataLocs, varargin{:});
+        function self = VB(modu, frame, pul, nTimeslot, nSubcarr, varargin)
+            self = self@Modu(modu, frame, pul, nTimeslot, nSubcarr, varargin{:});
         end
 
 
