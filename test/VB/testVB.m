@@ -1,5 +1,8 @@
 clear;
 clc;
+%% Config
+genconfig("OTFS", "EMBED", "toy-p1");
+
 configOTFSEmbedP1;
 SNR_d = SNR_ds(1);
 No = Nos(1);
