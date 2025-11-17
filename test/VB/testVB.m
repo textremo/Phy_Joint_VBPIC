@@ -3,9 +3,8 @@ clc;
 %% Config
 genconfig("OTFS", "EMBED", "toy-p1");
 
-configOTFSEmbedP1;
-SNR_d = SNR_ds(1);
-No = Nos(1);
+SNR_d = SNR_d(1);
+No = 10.^(-SNR_d/10);
 N_fram = N_frams(1);
 pil_pow = 10^((SNR_p - SNR_d)/10);
 pil_thr = 3*sqrt(No);
@@ -13,13 +12,13 @@ fprintf("SNR=%d\n",SNR_d);
 
 %% OTFS
 % generate data
-nbits = randi([0,1],sig_len*M_bits,1);
+nbits = randi([0,1],data_len*M_bits,1);
 xDD_syms = qammod(nbits, M_mod,'InputType','bit','UnitAveragePower',true);
 % data to rg
 rg = OTFSResGrid(M, N);
 rg.setPulse2Recta();
 rg.setPilot2Center(1, 1);
-rg.setGuard(gdn_len, gdp_len, gkn_len, gkp_len);
+rg.setGuard(gln_len, glp_len, gkn_len, gkp_len);
 rg.map(xDD_syms, "pilots_pow", pil_pow);
 % pass the channel
 otfs = OTFS();
