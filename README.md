@@ -48,6 +48,8 @@ genconfig(filename, sheetname, casename);
     | gkp_len | the guard length on the Doppler axis(pos) | |
     | gln_len | the guard length on the delay axis(neg) | |
     | glp_len | the guard length on the delay axis(pos) | |
+    | sig_len | the length of the signal | |
+    | data_len | the length of the data | |
 
 ## Sample
 - `VB`: variational Bayes
