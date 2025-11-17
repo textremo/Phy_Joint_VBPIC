@@ -2,13 +2,12 @@ clear;
 clc;
 %% Config
 genconfig("OTFS", "EMBED", "toy-p1");
-
 SNR_d = SNR_d(1);
 No = 10.^(-SNR_d/10);
 N_fram = N_frams(1);
 pil_pow = 10^((SNR_p - SNR_d)/10);
 pil_thr = 3*sqrt(No);
-fprintf("SNR=%d\n",SNR_d);
+
 
 %% OTFS
 % generate data
@@ -30,10 +29,11 @@ H_DD = otfs.getChannel();
 % Rx
 rg_rx = otfs.demodulate();
 [yDD, his_est0, lis_est0, kis_est0] = rg_rx.demap("threshold", pil_thr);
-
+% to full his
+his = Utils.realH2Hfull(kmax, lmax, his, lis, kis);
+his_est0 = Utils.realH2Hfull(kmax, lmax, his_est0, lis_est0, kis_est0);
 
 %% VB
-
 dataLocs = rg.getContentDataLocsMat();
 refSig = zeros(N, M); refSig(4,4) = (1+1j)*sqrt(pil_pow/2);
 csiLim = [lmax, kmax];
@@ -46,8 +46,6 @@ his_est1 = vb.che(Y_DD, "No", No);
 his_est1 = his_est1.';
 
 %% 
-his = Utils.realH2Hfull(kmax, lmax, his, lis, kis);
-his_est0 = Utils.realH2Hfull(kmax, lmax, his_est0, lis_est0, kis_est0);
 
 hm = abs(his) > 0;
 
