@@ -34,7 +34,7 @@ genconfig(filename, sheetname, casename);
     | N | timeslot number | i.e., K (Doppler grid number) |
     | SNR_d | data SNR(dB) | over the noise |
     | SNR_p | pilot SNR(dB) | over the noise |
-    | N_frames | simulation frames over each SNR | |
+    | N_frams | simulation frames over each SNR | |
     | M_mod | M-ary QAM | |
     | M_bits | the bit number for each symbol |  |
     | constel | constellation | |
