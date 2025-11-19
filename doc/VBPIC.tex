@@ -435,7 +435,7 @@ If we assume the noise is known to us, the estimation process can be simplified 
     &\propto \mathbb{E}_{q^{(t)}_{-\gamma}}\{lnp(y|h,\alpha) + lnp(h|\gamma) + lnp(\gamma) + lnp(\alpha)\} \\
     &\propto \mathbb{E}_{q^{(t)}_{-\gamma}}\{lnp(h|\gamma) + lnp(\gamma)\} \\
     &\propto \sum_{l=0}^{P_\max-1} \left( ln(\gamma_l) - \gamma_l\Vert h_l^{(t+1)} \Vert^2 + (c-1)ln\gamma_l -d\gamma_l\right) \\
-    &\propto \sum_{l=0}^{P_\max-1} \left( \underbrace{(c+1-1)}_{c^{t+1}}ln(\gamma_l) - \gamma_l \underbrace{(d + \Vert h_l^{(t+1)} \Vert^2)}_{d^{(t+1)}} \right)
+    &\propto \sum_{l=0}^{P_\max-1} \left( (\underbrace{c+1}_{c^{t+1}}-1)ln(\gamma_l) - \gamma_l \underbrace{(d + \Vert h_l^{(t+1)} \Vert^2)}_{d^{(t+1)}} \right)
     \end{align}
     where $\Vert h_l^{(t+1)} \Vert^2 = \Sigma_{h_l}^{t+1} + |\mu_{h_l}^{t+1}|^2$.
     Therefore,
