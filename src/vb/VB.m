@@ -42,6 +42,7 @@ classdef VB < Modu
             % init parameters
             Yp = Ydd(self.pilCheRng(1):self.pilCheRng(2), self.pilCheRng(3):self.pilCheRng(4));
             yp = Yp(:);
+            Z = length(yp);
             P = self.ref2Phi();
             PtP = P'*P;
             Pty = P'*yp;
@@ -59,6 +60,9 @@ classdef VB < Modu
             for t = 1:iter_num
                 % update alpha
                 if update_alpha
+                    a = a + Z;
+                    b = b + sum(yp - P*h_mean) + sum(diag(PtP*h_vari));
+                    alpha = a/b;
                 end
 
                 % update h
