@@ -120,9 +120,13 @@ classdef Modu < dynamicprops
             if length(varargin) >= 1
                 self.csiLim = varargin{1};
             end
+            self.init();
+        end
 
-            %--------------------------------------------------------------
-            % OTFS properties
+        %{
+        init
+        %}
+        function init(self)
             if ~isnan(self.csiLim)
                 lmax = self.csiLim(1); kmax = self.csiLim(2);
                 % delay & Doppler
@@ -153,7 +157,6 @@ classdef Modu < dynamicprops
                         self.piMat = eye(self.sig_len);                 % permutation matrix (from the delay) -> pi
                 end
             end
-            
         end
     
         %{
@@ -273,7 +276,7 @@ classdef Modu < dynamicprops
                             % delay
                             piMati = circshift(self.piMat, li); 
                             % Doppler
-                            timeSeq = [0:self.sig_len-1-li, -li:-1];
+                            timeSeq = circshift(-li:self.sig_len-1-li, -li);
                             deltaMat_diag = exp(2j*pi*ki/(self.sig_len)*timeSeq);
                             deltaMati = diag(deltaMat_diag);
                             % Pi, Qi, & Ti

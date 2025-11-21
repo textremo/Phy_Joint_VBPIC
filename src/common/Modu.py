@@ -1,7 +1,11 @@
 import numpy as np
-from numpy import exp
+from numpy import arange, ones, zeros, eye, kron, reshape, einsum, sqrt, exp, conj
+from numpy import tile as repmat
+from numpy import roll as circshift
 from numpy.linalg import inv
+from numpy.fft import fft, ifft
 
+pi = np.pi
 eps = np.finfo(np.float64).eps
 
 import torch
@@ -10,7 +14,7 @@ import torch.nn as nn
 
 class Modu:
     # OFDM 0~49
-    MODU_OFDM_STD               = 0;
+    MODU_OFDM_STD           = 0;
     MODUS_OFDM = [MODU_OFDM_STD];
     # OTFS 50~99
     MODU_OTFS_FULL          = 50;           # full
@@ -19,7 +23,7 @@ class Modu:
     MODU_OTFS_SP_REP_DELAY  = 65;           # superimposed - replicate on the delay axis
     MODUS_OTFS = [MODU_OTFS_FULL, MODU_OTFS_EMBED, MODU_OTFS_SP, MODU_OTFS_SP_REP_DELAY];
     # all
-    MODUs = [MODUS_OFDM, MODUS_OTFS];
+    MODUs = MODUS_OFDM + MODUS_OTFS
 
     # Frame type
     FT_CP = 1;              # cyclic prefix
@@ -33,7 +37,7 @@ class Modu:
     
     
     #------------------------------------------------------------------
-    B = None;
+    B = 1;
     # modulation
     modu = None;
     frame = None;
@@ -71,19 +75,6 @@ class Modu:
     pilCheRng = None;       # pilot CHE range [k0, kN, l0, lN] (k0->kN: k range, l0-lN: l range)            
     pilCheRng_klen = 0;
     pilCheRng_len = 0;
-    # others
-    H0 = None;
-    Hv0 = None;
-    off_diag = None;
-    eyeKL = None;
-    eyeK = None;
-    eyeL = None;
-    eyePmax = None;
-    hw0 = None;
-    hvw0 = None;
-    dftmat = None;
-    idftmat = None;
-    piMat = None;
     
     '''
     init
@@ -98,7 +89,7 @@ class Modu:
                      1)
                      2) OTFS: [lmax, kmax]
     '''
-    def Modu(self, modu, frame, pul, nTimeslot, nSubcarr, *args, B=None):
+    def __init__(self, modu, frame, pul, nTimeslot, nSubcarr, *args, B=None):
         if modu not in self.MODUs:
             raise Exception("The modulation type is not supported!!!");
         if frame not in self.FTs:
@@ -122,39 +113,142 @@ class Modu:
             self.csiLim = args[0];
         if B:
             self.B = B;
-
-        #--------------------------------------------------------------
-        # OTFS properties
+        self.init();
+        
+    '''
+    init
+    '''
+    def init(self):
         if self.csiLim:
             lmax = self.csiLim[0]; kmax = self.csiLim[1];
             # delay & Doppler
             self.pmax = (lmax+1)*(2*kmax+1); 
-            self.lis = np.kron(np.arange(lmax+1), np.ones(2*kmax + 1));
-            self.kis = np.arange(-kmax, kmax+1).repeat(lmax+1);
+            self.lis = kron(arange(lmax+1), ones(2*kmax + 1)).astype(int);
+            self.kis = arange(-kmax, kmax+1).repeat(lmax+1).astype(int);
             # H0
-            self.H0 = np.zeros([self.B, self.sig_len, self.sig_len]) if self.B else np.zeros([self.sig_len, self.sig_len]);
-            self.Hv0 = np.zeros([self.B, self.sig_len, self.sig_len]) if self.B else np.zeros([self.sig_len, self.sig_len]);
+            self.H0 = zeros([self.B, self.sig_len, self.sig_len]);
+            self.Hv0 = zeros([self.B, self.sig_len, self.sig_len]);
             # off-diagonal
-            self.off_diag =  np.eye(self.sig_len)+1 - np.eye(self.sig_len)*2;
-            if self.B:
-                self.off_diag = np.tile(self.off_diag, [self.B, 1, 1]);
+            self.off_diag =  repmat(np.eye(self.sig_len)+1 - np.eye(self.sig_len)*2, [self.B, 1, 1]);
             # eye
-            self.eyeKL = np.eye(self.sig_len);
-            self.eyeK = np.eye(self.K);
-            self.eyeL = np.eye(self.L);
-            self.eyePmax = np.eye(self.pmax);
+            self.eyeKL = repmat(np.eye(self.sig_len), [self.B, 1, 1]);
+            self.eyeK = repmat(np.eye(self.K), [self.B, 1, 1]);
+            self.eyeL = repmat(np.eye(self.L), [self.B, 1, 1]);
+            self.eyePmax = repmat(np.eye(self.pmax), [self.B, 1, 1]);
 
             # others
             if self.pul == self.PUL_BIORT:
                 # bi-orthogonal pulse
-                self.hw0 = np.zeros([self.K, self.L]);
-                self.hvw0 = np.zeros([self.K, self.L]);
+                self.hw0 = zeros([self.B, self.K, self.L]);
+                self.hvw0 = zeros([self.B, self.K, self.L]);
             elif self.pul == self.PUL_RECTA:
                 # rectangular pulse
-                # self.dftmat = dftmtx(self.K)*sqrt(1/self.K);    # DFT matrix  
-                # self.idftmat = conj(self.dftmat);               # IDFT matrix     
-                # self.piMat = eye(self.sig_len);                 # permutation matrix (from the delay) -> pi
-                pass
+                self.dftmat = repmat(fft(eye(self.K)), [self.B, 1, 1])*sqrt(1/self.K);      # DFT matrix  
+                self.idftmat = conj(self.dftmat);                                           # IDFT matrix     
+                self.piMat = repmat(eye(self.sig_len), [self.B, 1, 1]);                     # permutation matrix (from the delay) -> pi
+                
+                
+    '''
+    set the data location
+    @dataLocs:       data locations, a 01 matrix of [N, M] or [K, L]
+    '''
+    def setDataLoc(self, dataLocs):
+        self.dataLocs = dataLocs;
+        self.data_len = np.sum(dataLocs);
+
+    '''
+    set the reference signal
+    @refSig:         the reference sigal of [N, M] or [K, L], 0 at non-ref locations
+    '''
+    def setRef(self, refSig):
+        self.refSig = np.asarray(refSig);
+        if self.modu == self.MODU_OTFS_FULL:
+            raise Exception("Full data does not support any reference signal!!!");
+        
+        # pilot CHE range
+        if self.csiLim:
+            lmax = self.csiLim[0]; kmax = self.csiLim[1];
+            refSig = self.refSig;
+            if self.modu == self.MODU_OTFS_SP_REP_DELAY:
+                refSig = self.refSig[:, 1:lmax+1];
+            pkls = np.asarray(np.where(abs(refSig) > eps))
+            pk0 = pkls[0, 0]
+            pl0 = pkls[1, 0]
+            pkN = pkls[0, -1]
+            plN = pkls[1, -1]
             
-class Modu2(Modu, nn.Module):
-    pass
+            self.pilCheRng = [max(pk0-kmax, 0), min(pkN+kmax, self.K-1), pl0, min(plN + lmax, self.L-1)];
+            self.pilCheRng_klen = self.pilCheRng[1] - self.pilCheRng[0] + 1;
+            self.pilCheRng_len = self.pilCheRng_klen*(self.pilCheRng[3] - self.pilCheRng[2] + 1);
+            
+    '''
+    set the constellation
+    @constel:           the constellation, a vector
+    '''
+    def setConstel(self, constel):
+        constel = np.asarray(constel)
+        
+        self.constel = constel                              # constellation must be a row vector or an 1D vector
+        self.constel_len = len(constel);
+        self.Ed = sum(abs(constel)**2)/self.constel_len;    # constellation average power
+    
+    '''
+    set the csi if know
+    @Eh:                the energy of each path
+    '''
+    def setCSI(self, Eh):
+        self.Eh = Eh;
+        
+    '''
+    check the pulse type
+    '''
+    def isPulBiort(self):
+        return self.pul == self.PUL_BIORT;
+    def isPulRecta(self):
+        return self.pul == self.PUL_RECTA;
+    
+    
+    '''
+    h to H (time domain to DD domain)
+    @h:        CHE path gains, [B, Pmax]
+    <OPT>
+    @hv:       CHE variance, [B, Pmax]
+    @hm:       CHE mask, [B, Pmax]
+    @min_var:  the minimal variance
+    '''
+    def h2H(self, h, *, hv=None, hm=None, min_var=eps):
+        if not hv:
+            hv = ones([self.B, self.pmax]);
+        if not hm:
+            hm = ones([self.B, self.pmax]);
+        
+        # to H
+        H = self.H0;
+        Hv = self.Hv0;
+        if self.pul == self.PUL_BIORT:
+            pass
+        if self.pul == self.PUL_RECTA:
+            for tap_id in range(self.pmax):
+                hmi = hm[..., tap_id];
+                # only accumulate when there are at least a path
+                if np.any(hmi):
+                    hi = h[..., tap_id]
+                    hvi = hv[..., tap_id]
+                    li = self.lis[tap_id].item()
+                    ki = self.kis[tap_id].item()
+                    # delay
+                    piMati = circshift(self.piMat, li, 1); 
+                    # Doppler
+                    timeSeq = repmat(circshift(arange(-li, self.sig_len-li), -li), [self.B, 1])
+                    deltaMat_diag = exp(2j*pi*ki/(self.sig_len)*timeSeq);
+                    deltaMati = deltaMat_diag[..., None]*eye(self.sig_len)
+                    # Pi, Qi, & Ti
+                    Pi = einsum('...ij,...kl->...ikjl', self.dftmat, self.eyeL).reshape(self.B, self.sig_len, self.sig_len) @ piMati 
+                    Qi = deltaMati @ einsum('...ij,...kl->...ikjl', self.idftmat, self.eyeL).reshape(self.B, self.sig_len, self.sig_len)
+                    Ti = Pi @ Qi;
+                    H = H + hi.reshape(-1, 1, 1) * Ti;
+                    Hv = Hv + hvi.reshape(-1, 1, 1)*abs(Ti);
+ 
+        # set the minimal variance
+        Hv = Hv.clip(min_var)
+        return H, Hv
