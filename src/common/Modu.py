@@ -129,12 +129,12 @@ class Modu:
             self.H0 = zeros([self.B, self.sig_len, self.sig_len]);
             self.Hv0 = zeros([self.B, self.sig_len, self.sig_len]);
             # off-diagonal
-            self.off_diag =  repmat(np.eye(self.sig_len)+1 - np.eye(self.sig_len)*2, [self.B, 1, 1]);
+            self.off_diag =  repmat(eye(self.sig_len)+1 - eye(self.sig_len)*2, [self.B, 1, 1]);
             # eye
-            self.eyeKL = repmat(np.eye(self.sig_len), [self.B, 1, 1]);
-            self.eyeK = repmat(np.eye(self.K), [self.B, 1, 1]);
-            self.eyeL = repmat(np.eye(self.L), [self.B, 1, 1]);
-            self.eyePmax = repmat(np.eye(self.pmax), [self.B, 1, 1]);
+            self.eyeKL = repmat(eye(self.sig_len), [self.B, 1, 1]);
+            self.eyeK = repmat(eye(self.K), [self.B, 1, 1]);
+            self.eyeL = repmat(eye(self.L), [self.B, 1, 1]);
+            self.eyePmax = repmat(eye(self.pmax), [self.B, 1, 1]);
 
             # others
             if self.pul == self.PUL_BIORT:
@@ -161,7 +161,10 @@ class Modu:
     @refSig:         the reference sigal of [N, M] or [K, L], 0 at non-ref locations
     '''
     def setRef(self, refSig):
-        self.refSig = np.asarray(refSig);
+        refSig = np.asarray(refSig);
+        if refSig.ndim > 2:
+            raise Exception("The reference signal cannot be batched!!!");
+        self.refSig = refSig;
         if self.modu == self.MODU_OTFS_FULL:
             raise Exception("Full data does not support any reference signal!!!");
         
@@ -252,3 +255,29 @@ class Modu:
         # set the minimal variance
         Hv = Hv.clip(min_var)
         return H, Hv
+    
+    '''
+    refSig to Phi
+    '''
+    def ref2Phi(self):
+        if self.modu == self.MODU_OTFS_FULL:
+            raise Exception("Not refence signal is given on the full data frame type!!!");
+        
+        Phi = zeros([self.B, self.pilCheRng_len, self.pmax]).astype(complex);
+        for yk in arange(self.pilCheRng[0], self.pilCheRng[1]+1):
+            for yl in arange(self.pilCheRng[2], self.pilCheRng[3]+1):
+                Phi_ri = (yl - self.pilCheRng[2])*self.pilCheRng_klen + yk - self.pilCheRng[0];
+                for p_id in arange(self.pmax):
+                    li = self.lis[p_id];
+                    ki = self.kis[p_id];
+                    # x(k, l)
+                    xl = yl - li;
+                    xk = yk - ki;
+                    if abs(self.refSig[xk, xl]) > eps:
+                        # exponential part (pss_beta)
+                        if self.isPulBiort():
+                            pss_beta = exp(-2j*pi*li/self.L*ki/self.K);
+                        elif self.isPulRecta():
+                            pss_beta = exp(2j*pi*(yl-li)/self.L*ki/self.K);     # here, you must use `yl-li` instead of `xl` or there will be an error
+                        Phi[..., Phi_ri, p_id] = self.refSig[xk, xl]*pss_beta;
+        return Phi

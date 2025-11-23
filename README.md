@@ -6,7 +6,7 @@ This repository offers a joint channel estimation and symbol detection implement
     * `HOME/Add-Ons/Get Add-Ons`: search `textremo_phy_joint_vbpic` and install it.
 * Install through `pip`
     ```sh
-    pip install scipy
+    pip install scipy, pandas, openpyxl
     pip install textremo-toolbox
     pip install textremo-phy-joint-vbpic
     ```
