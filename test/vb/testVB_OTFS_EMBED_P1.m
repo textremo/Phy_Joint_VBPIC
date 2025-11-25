@@ -62,6 +62,11 @@ disp(" - vb");
 fprintf("    diff: %e\n", max(est1_diff));
 fprintf("    err: %e\n", max(est1_err));
 
+if ~exist("./_dist/test", "dir")
+    mkdir("./_dist/test")
+end
+save("./_dist/test/testVB_OTFS_EMBED_P1.mat");
+
 %% VB - iter N
 user_input = input('iter-N: please press Enter to continue: ', 's');
 if ~isempty(user_input)

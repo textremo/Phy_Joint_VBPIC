@@ -1,14 +1,17 @@
 import numpy as np
-from numpy import arange, ones, zeros, eye, kron, reshape, einsum, sqrt, exp, conj
+from numpy import arange, ones, zeros, eye, diag, diagonal, kron, reshape, einsum, sqrt, exp, conj
 from numpy import tile as repmat
 from numpy import moveaxis as mvdim
 from numpy import roll as circshift
 from numpy.linalg import inv
 from numpy.fft import fft, ifft
-
 eps = np.finfo(np.float64).eps
+try:
+    from ..common.Modu import Modu
+except:
+    from .Modu import Modu
 
-class VB(object):
+class VB(Modu):
     
     def __init__(self, modu, frame, pul, nTimeslot, nSubcarr, *args, B=None):
         super().__init__(modu, frame, pul, nTimeslot, nSubcarr, *args, B=B);
@@ -27,8 +30,40 @@ class VB(object):
         Yp = Ydd[..., self.pilCheRng[0]:self.pilCheRng[1]+1, self.pilCheRng[2]:self.pilCheRng[3]+1]
         yp = reshape(Yp, [self.B, -1, 1]);
         Z = yp.shape[-2];
-        P = self.ref2Phi();
+        P = self.ref2Phi()
         PtP = mvdim(P, -1, -2).conj() @ P;
         Pty = mvdim(P, -1, -2).conj() @ yp;
-        a = 1; b = 1; c = ones([self.B, self.pmax]); d = ones([self.B, self.pmax]);
-        alpha = ones([self.B]); gamma = ones(self.pmax, 1); h_vari = inv(PtP + repmat(eye(self.pmax), [self.B, 1, 1])); h_mean = h_vari@Pty;
+        a = 1; b = 1;
+        c = ones([self.B, self.pmax, 1]);
+        d = ones([self.B, self.pmax, 1]);
+        alpha = 1; 
+        gamma = ones([self.B, self.pmax, 1])
+        gamma_new = ones([self.B, self.pmax, 1])
+        h_vari = inv(PtP + repmat(eye(self.pmax), [self.B, 1, 1])); 
+        h_mean = h_vari @ Pty
+        update_alpha = False
+        if No:
+            alpha = 1/No
+        else:
+            update_alpha = True
+            
+        # VB CHE 
+        upids = arange(self.B)
+        for t in range(iter_num):
+            # update h
+            h_vari[upids] = inv(alpha * PtP[upids] + gamma[upids]*diag(ones(self.pmax)))
+            h_mean[upids] = alpha* h_vari[upids] @ Pty[upids];
+            # update gamma
+            c[upids] = c[upids] + 1;
+            d[upids] = d[upids] + diagonal(h_vari[upids], axis1=-2, axis2=-1)[..., None] + abs(h_mean[upids])**2;
+            gamma_new[upids] = c[upids]/d[upids];
+            
+            if es:
+                upids = np.sum(abs(gamma_new - gamma)**2, axis=(-2,-1))/np.sum(abs(gamma)**2, axis=(-2,-1)) >= es_thres
+                if sum(upids) == 0:
+                    break
+                upids = np.where(upids)[0]
+            gamma[upids] = gamma_new[upids]
+                
+        return h_mean.squeeze(-1)
+                

@@ -310,18 +310,14 @@ classdef Modu < dynamicprops
                         % x(k, l)
                         xl = yl - li;
                         xk = yk - ki;
-                        try
-                            if abs(self.refSig(xk, xl)) > eps
-                                % exponential part (pss_beta)
-                                if self.isPulBiort()
-                                    pss_beta = exp(-2j*pi*li/self.L*ki/self.K);
-                                elseif self.isPulRecta()
-                                    pss_beta = exp(2j*pi*(yl-li-1)/self.L*ki/self.K);     % here, you must use `yl-li` instead of `xl` or there will be an error
-                                end
-                                Phi(Phi_ri, p_id) = self.refSig(xk, xl)*pss_beta;
+                        if abs(self.refSig(xk, xl)) > eps
+                            % exponential part (pss_beta)
+                            if self.isPulBiort()
+                                pss_beta = exp(-2j*pi*li/self.L*ki/self.K);
+                            elseif self.isPulRecta()
+                                pss_beta = exp(2j*pi*(yl-li-1)/self.L*ki/self.K);     % here, you must use `yl-li` instead of `xl` or there will be an error
                             end
-                        catch
-                            disp("Debug: index error!!!");
+                            Phi(Phi_ri, p_id) = self.refSig(xk, xl)*pss_beta;
                         end
                     end
                 end

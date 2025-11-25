@@ -46,13 +46,17 @@ classdef VB < Modu
             P = self.ref2Phi();
             PtP = P'*P;
             Pty = P'*yp;
-            a = 1; b = 1; c = ones(self.pmax, 1); d = ones(self.pmax, 1);
-            alpha = 1; gamma = ones(self.pmax, 1); h_vari = inv(PtP + eye(self.pmax)); h_mean = h_vari*Pty;
+            a = 1; b = 1;
+            c = ones(self.pmax, 1);
+            d = ones(self.pmax, 1);
+            alpha = 1;
+            gamma = ones(self.pmax, 1);
+            h_vari = inv(PtP + eye(self.pmax));
+            h_mean = h_vari*Pty;
             update_alpha = false;
             if ~isnan(No)
                 alpha = 1/No;
             else
-                alpha = 1;
                 update_alpha = true;
             end
             

@@ -124,7 +124,7 @@ class Modu:
             # delay & Doppler
             self.pmax = (lmax+1)*(2*kmax+1); 
             self.lis = kron(arange(lmax+1), ones(2*kmax + 1)).astype(int);
-            self.kis = arange(-kmax, kmax+1).repeat(lmax+1).astype(int);
+            self.kis = repmat(arange(-kmax, kmax+1), lmax+1).astype(int);
             # H0
             self.H0 = zeros([self.B, self.sig_len, self.sig_len]);
             self.Hv0 = zeros([self.B, self.sig_len, self.sig_len]);
