@@ -14,9 +14,18 @@ except:
     from .Modu import Modu
 
 class VB(Modu):
+    constel = None
+    constel_len = 0
+    Ed = 1                  # energy of data (constellation average power)
     
-    def __init__(self, modu, frame, pul, nTimeslot, nSubcarr, *args, B=None):
+    def __init__(self, constel, modu, frame, pul, nTimeslot, nSubcarr, *args, B=None):
         super().__init__(modu, frame, pul, nTimeslot, nSubcarr, *args, B=B);
+        
+        constel = np.asarray(constel)
+        
+        self.constel = constel                              # constellation must be a row vector or an 1D vector
+        self.constel_len = len(constel);
+        self.Ed = sum(abs(constel)**2)/self.constel_len;    # constellation average power
         
     '''
     channel estimation

@@ -39,12 +39,6 @@ modu.setDataLoc(dataLocs);
 modu.setRef(refSig);
 print("        - all pass.");
 
-'''
-case 02 - constel
-'''
-constel = [-1-1j, -1+1j, 1-1j, 1+1j];
-modu.setConstel(constel);
-print("     02 (constel): pass.");
 
 print("case 2x (OTFS)");
 '''

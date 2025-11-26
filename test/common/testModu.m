@@ -29,14 +29,6 @@ modu = Modu(Modu.MODU_OTFS_EMBED, Modu.FT_CP, Modu.PUL_RECTA, nTimeslot, nSubcar
 modu.setDataLoc(dataLocs);
 modu.setRef(refSig);
 disp("        - all pass.");
-%{
-case 02 - constel
-%}
-constel = [-1-1j, -1+1j, 1-1j, 1+1j];
-modu.setConstel(constel);
-constel = constel.';
-modu.setConstel(constel);
-disp("     02 (constel): pass.");
 
 
 disp("case 2x (OTFS)");

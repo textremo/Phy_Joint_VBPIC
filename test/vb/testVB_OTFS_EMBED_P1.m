@@ -38,7 +38,7 @@ dataLocs = rg.getContentDataLocsMat();
 refSig = zeros(N, M); refSig(4,4) = (1+1j)*sqrt(pil_pow/2);
 csiLim = [lmax, kmax];
 Y_DD = rg_rx.getContent();
-vb = VB(Modu.MODU_OTFS_EMBED, Modu.FT_CP, Modu.PUL_RECTA, N, M, csiLim);
+vb = VB(constel, Modu.MODU_OTFS_EMBED, Modu.FT_CP, Modu.PUL_RECTA, N, M, csiLim);
 vb.setDataLoc(dataLocs);
 vb.setRef(refSig);
 
@@ -136,7 +136,7 @@ for i = 1:length(SNR_d)
         refSig = zeros(N, M); refSig(4,4) = (1+1j)*sqrt(pil_pow/2);
         csiLim = [lmax, kmax];
         Y_DD = rg_rx.getContent();
-        vb = VB(Modu.MODU_OTFS_EMBED, Modu.FT_CP, Modu.PUL_RECTA, N, M, csiLim);
+        vb = VB(constel, Modu.MODU_OTFS_EMBED, Modu.FT_CP, Modu.PUL_RECTA, N, M, csiLim);
         vb.setDataLoc(dataLocs);
         vb.setRef(refSig);
         his_est1 = vb.che(Y_DD, "No", No);

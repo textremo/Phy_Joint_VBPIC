@@ -1,10 +1,24 @@
 classdef VB < Modu
+    properties
+        constel {mustBeNumeric}
+        constel_len {mustBeNumeric}
+        Ed = 1;                                             % energy of data (constellation average power)
+    end
+
     methods
         %{
         constructor
         %}
-        function self = VB(modu, frame, pul, nTimeslot, nSubcarr, varargin)
+        function self = VB(constel, modu, frame, pul, nTimeslot, nSubcarr, varargin)
             self = self@Modu(modu, frame, pul, nTimeslot, nSubcarr, varargin{:});
+
+            if ~isvector(constel)
+                error("The constellation must be a vector.");
+            else
+                self.constel = reshape(constel, 1, []);            % constellation must be a row vector or an 1D vector
+                self.constel_len = length(constel);
+                self.Ed = sum(abs(constel).^2)/self.constel_len;   % constellation average power
+            end
         end
 
 

@@ -42,12 +42,6 @@ classdef Modu < dynamicprops
         % vectorized length
         sig_len = 0;
         data_len = 0;
-
-        %------------------------------------------------------------------
-        % constel
-        constel {mustBeNumeric}
-        constel_len {mustBeNumeric}
-        Ed = 1;                                             % energy of data (constellation average power)
         
         %------------------------------------------------------------------
         % CSI
@@ -190,21 +184,6 @@ classdef Modu < dynamicprops
                 self.pilCheRng = [max(pk0-kmax, 1), min(pkN+kmax, self.K), pl0, min(plN + lmax, self.L)];
                 self.pilCheRng_klen = self.pilCheRng(2) - self.pilCheRng(1) + 1;
                 self.pilCheRng_len = self.pilCheRng_klen*(self.pilCheRng(4) - self.pilCheRng(3) + 1);
-            end
-        end
-
-
-        %{
-        set the constellation
-        @constel:           the constellation, a vector
-        %}
-        function setConstel(self, constel)
-            if ~isvector(constel)
-                error("The constellation must be a vector.");
-            else
-                self.constel = reshape(constel, 1, []);            % constellation must be a row vector or an 1D vector
-                self.constel_len = length(constel);
-                self.Ed = sum(abs(constel).^2)/self.constel_len;   % constellation average power
             end
         end
 

@@ -54,12 +54,6 @@ class Modu:
     # vectorized length
     sig_len = 0;
     data_len = 0;
-
-    #------------------------------------------------------------------
-    # constel
-    constel = None;
-    constel_len = 0;
-    Ed = 1;                                             # energy of data (constellation average power)
     
     #------------------------------------------------------------------
     # CSI
@@ -183,17 +177,7 @@ class Modu:
             self.pilCheRng = [max(pk0-kmax, 0), min(pkN+kmax, self.K-1), pl0, min(plN + lmax, self.L-1)];
             self.pilCheRng_klen = self.pilCheRng[1] - self.pilCheRng[0] + 1;
             self.pilCheRng_len = self.pilCheRng_klen*(self.pilCheRng[3] - self.pilCheRng[2] + 1);
-            
-    '''
-    set the constellation
-    @constel:           the constellation, a vector
-    '''
-    def setConstel(self, constel):
-        constel = np.asarray(constel)
         
-        self.constel = constel                              # constellation must be a row vector or an 1D vector
-        self.constel_len = len(constel);
-        self.Ed = sum(abs(constel)**2)/self.constel_len;    # constellation average power
     
     '''
     set the csi if know

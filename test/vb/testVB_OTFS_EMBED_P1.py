@@ -12,8 +12,7 @@ from util import Utils
 from src import *
 
 B = 2
-#user_input = input('Do you use matlab data as input? please press Enter as yes: ')
-user_input = ''
+user_input = input('Do you use matlab data as input? please press Enter as yes: ')
 if user_input:
     genconfig("OTFS", "EMBED", "toy-p1")
 
@@ -64,8 +63,9 @@ else:
     Y_DD = repmat(mat_data['Y_DD'], [B, 1, 1])
     his = repmat(mat_data['his'], [B, 1])
     his_est0 = repmat(mat_data['his_est0'], [B, 1])
+    constel = mat_data['constel'].squeeze()
 
-vb = VB(Modu.MODU_OTFS_EMBED, Modu.FT_CP, Modu.PUL_RECTA, N, M, csiLim, B=B);
+vb = VB(constel, Modu.MODU_OTFS_EMBED, Modu.FT_CP, Modu.PUL_RECTA, N, M, csiLim, B=B);
 vb.setDataLoc(dataLocs);
 vb.setRef(refSig);
 
