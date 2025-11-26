@@ -11,7 +11,7 @@ from config.genconfig import genconfig
 from util import Utils
 from src import *
 
-B = 1
+B = 2
 #user_input = input('Do you use matlab data as input? please press Enter as yes: ')
 user_input = ''
 if user_input:
@@ -63,6 +63,7 @@ else:
     refSig = mat_data['refSig']
     Y_DD = repmat(mat_data['Y_DD'], [B, 1, 1])
     his = repmat(mat_data['his'], [B, 1])
+    his_est0 = repmat(mat_data['his_est0'], [B, 1])
 
 vb = VB(Modu.MODU_OTFS_EMBED, Modu.FT_CP, Modu.PUL_RECTA, N, M, csiLim, B=B);
 vb.setDataLoc(dataLocs);
@@ -78,3 +79,10 @@ est1_diff = abs(his_est1[hm] - his[hm]);
 est1_err = abs(his_est1[~hm]);
 est2_diff = abs(his_est2[hm] - his[hm]);
 est2_err = abs(his_est2[~hm]);
+print(" - threshold diff: %e"%max(est0_diff));
+print(" - vb(know No)");
+print("    diff: %e"%max(est1_diff));
+print("    err: %e"%max(est1_err));
+print(" - vb");
+print("    diff: %e"%max(est1_diff));
+print("    err: %e"%max(est1_err));
