@@ -32,9 +32,8 @@ try:
     modu.setRef(refSig);
 except:
     print("        - illegal refSig pass.");
-modu = Modu(Modu.MODU_OTFS_FULL, Modu.FT_CP, Modu.PUL_RECTA, nTimeslot, nSubcarr);
-modu.setDataLoc(dataLocs);
-modu = Modu(Modu.MODU_OTFS_EMBED, Modu.FT_CP, Modu.PUL_RECTA, nTimeslot, nSubcarr, csiLim);
+modu = Modu(Modu.MODU_OTFS_EMBED, Modu.FT_CP, Modu.PUL_RECTA, nTimeslot, nSubcarr)
+modu.setCSI(kmax, lmax)
 modu.setDataLoc(dataLocs);
 modu.setRef(refSig);
 print("        - all pass.");
@@ -59,8 +58,9 @@ kis = arange(-kmax,kmax+1).repeat(lmax+1).astype(int);
 
 h = randn(B,9) + randn(B,9)*1j;
 
-modu = Modu(Modu.MODU_OTFS_EMBED, Modu.FT_CP, Modu.PUL_RECTA, nTimeslot, nSubcarr, csiLim, B=B);
-modu.setDataLoc(dataLocs);
+modu = Modu(Modu.MODU_OTFS_EMBED, Modu.FT_CP, Modu.PUL_RECTA, nTimeslot, nSubcarr, B=B)
+modu.setDataLoc(dataLocs)
+modu.setCSI(kmax, lmax)
 modu.setRef(refSig);
 [H, Hv] = modu.h2H(h);
 

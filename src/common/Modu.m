@@ -114,13 +114,13 @@ classdef Modu < dynamicprops
             if length(varargin) >= 1
                 self.csiLim = varargin{1};
             end
-            self.init();
+            self.Init();
         end
 
         %{
         init
         %}
-        function init(self)
+        function Init(self)
             if ~isnan(self.csiLim)
                 lmax = self.csiLim(1); kmax = self.csiLim(2);
                 % delay & Doppler
@@ -153,6 +153,19 @@ classdef Modu < dynamicprops
             end
         end
     
+        %{
+        set the constel
+        %}
+        function setConstel(self, constel)
+            if ~isvector(constel)
+                error("The constellation must be a vector.");
+            else
+                self.constel = reshape(constel, 1, []);            % constellation must be a row vector or an 1D vector
+                self.constel_len = length(constel);
+                self.Ed = sum(abs(constel).^2)/self.constel_len;   % constellation average power
+            end
+        end
+
         %{
         set the data location
         @dataLocs:       data locations, a 01 matrix of [N, M] or [K, L]
@@ -280,8 +293,8 @@ classdef Modu < dynamicprops
             end
             
             Phi = zeros(self.pilCheRng_len, self.pmax);
-            for yk = self.pilCheRng(1):self.pilCheRng(2)
-                for yl = self.pilCheRng(3):self.pilCheRng(4)
+            for yl = self.pilCheRng(3):self.pilCheRng(4)
+                for yk = self.pilCheRng(1):self.pilCheRng(2)
                     Phi_ri = (yl - self.pilCheRng(3))*self.pilCheRng_klen + (yk - self.pilCheRng(1) + 1);
                     for p_id = 1:self.pmax
                         li = self.lis(p_id);

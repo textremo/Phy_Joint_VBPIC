@@ -1,5 +1,5 @@
 import numpy as np
-from numpy import arange, ones, zeros, eye, kron, reshape, einsum, sqrt, exp, conj
+from numpy import arange, ones, zeros, eye, kron, reshape, where, einsum, sqrt, exp, conj
 from numpy import tile as repmat
 from numpy import roll as circshift
 from numpy.linalg import inv
@@ -47,28 +47,9 @@ class Modu:
     # modulation - OTFS
     K = 0;              # Doppler (timeslot) number
     L = 0;              # delay (subcarrier) number
-    # pilot
-    dataLocs = None;     # data locations
-    refSig = None;       # reference siganl (pilot + guard)
-    csiLim = None;
     # vectorized length
     sig_len = 0;
     data_len = 0;
-    
-    #------------------------------------------------------------------
-    # CSI
-    Eh = None;                                           # energy of the channel
-
-    #------------------------------------------------------------------
-    # OTFS
-    # CSI
-    pmax = None;
-    lis = None;
-    kis = None;
-    # area division
-    pilCheRng = None;       # pilot CHE range [k0, kN, l0, lN] (k0->kN: k range, l0-lN: l range)            
-    pilCheRng_klen = 0;
-    pilCheRng_len = 0;
     
     '''
     init
@@ -78,12 +59,8 @@ class Modu:
     @nTimeslot:      timeslot number
     @lmax:           the maximal delay index
     @nSubcarr:       subcarrier number
-    <OPT>
-    @csiLim:         CSI limitation
-                     1)
-                     2) OTFS: [lmax, kmax]
     '''
-    def __init__(self, modu, frame, pul, nTimeslot, nSubcarr, *args, B=None):
+    def __init__(self, modu, frame, pul, nTimeslot, nSubcarr, *, B=None):
         if modu not in self.MODUs:
             raise Exception("The modulation type is not supported!!!");
         if frame not in self.FTs:
@@ -103,44 +80,17 @@ class Modu:
             self.K = nTimeslot;
             self.L = nSubcarr;
         self.sig_len = nTimeslot*nSubcarr;
-        if len(args) >= 1:
-            self.csiLim = args[0];
         if B:
-            self.B = B;
-        self.init();
-        
+            self.B = B;        
+    
     '''
-    init
+    set the constel
     '''
-    def init(self):
-        if self.csiLim:
-            lmax = self.csiLim[0]; kmax = self.csiLim[1];
-            # delay & Doppler
-            self.pmax = (lmax+1)*(2*kmax+1); 
-            self.lis = kron(arange(lmax+1), ones(2*kmax + 1)).astype(int);
-            self.kis = repmat(arange(-kmax, kmax+1), lmax+1).astype(int);
-            # H0
-            self.H0 = zeros([self.B, self.sig_len, self.sig_len]);
-            self.Hv0 = zeros([self.B, self.sig_len, self.sig_len]);
-            # off-diagonal
-            self.off_diag =  repmat(eye(self.sig_len)+1 - eye(self.sig_len)*2, [self.B, 1, 1]);
-            # eye
-            self.eyeKL = repmat(eye(self.sig_len), [self.B, 1, 1]);
-            self.eyeK = repmat(eye(self.K), [self.B, 1, 1]);
-            self.eyeL = repmat(eye(self.L), [self.B, 1, 1]);
-            self.eyePmax = repmat(eye(self.pmax), [self.B, 1, 1]);
-
-            # others
-            if self.pul == self.PUL_BIORT:
-                # bi-orthogonal pulse
-                self.hw0 = zeros([self.B, self.K, self.L]);
-                self.hvw0 = zeros([self.B, self.K, self.L]);
-            elif self.pul == self.PUL_RECTA:
-                # rectangular pulse
-                self.dftmat = repmat(fft(eye(self.K)), [self.B, 1, 1])*sqrt(1/self.K);      # DFT matrix  
-                self.idftmat = conj(self.dftmat);                                           # IDFT matrix     
-                self.piMat = repmat(eye(self.sig_len), [self.B, 1, 1]);                     # permutation matrix (from the delay) -> pi
-                
+    def setConstel(self, constel):
+        constel = np.asarray(constel)
+        self.constel = constel                              # constellation must be a row vector or an 1D vector
+        self.constel_len = len(constel)
+        self.Ed = sum(abs(constel)**2)/self.constel_len;    # constellation average power
                 
     '''
     set the data location
@@ -149,6 +99,51 @@ class Modu:
     def setDataLoc(self, dataLocs):
         self.dataLocs = dataLocs;
         self.data_len = np.sum(dataLocs);
+
+    '''
+    set the csi if know
+    <OTFS>
+    @ins: Eh, p, kmax,lmax; Eh, kmax,lmax; kmax, lmax
+    '''
+    def setCSI(self, *args):
+        if self.modu in self.MODUS_OTFS:
+            if len(args) < 2:
+                raise Exception("The CSI information is incomplete!!!")
+            else:
+                kmax = args[-2]
+                lmax = args[-1]
+                self.kmax = kmax
+                self.lmax = lmax
+                if len(args) >= 3:
+                    self.Eh = args[0]
+                if len(args) == 4:
+                    self.p = args[1]
+                # delay & Doppler
+                self.pmax = (lmax+1)*(2*kmax+1); 
+                self.lis = kron(arange(lmax+1), ones(2*kmax + 1)).astype(int);
+                self.kis = repmat(arange(-kmax, kmax+1), lmax+1).astype(int);
+                # H0
+                self.H0 = zeros([self.B, self.sig_len, self.sig_len]);
+                self.Hv0 = zeros([self.B, self.sig_len, self.sig_len]);
+                # off-diagonal
+                self.off_diag =  repmat(eye(self.sig_len)+1 - eye(self.sig_len)*2, [self.B, 1, 1]);
+                # eye
+                self.eyeKL = repmat(eye(self.sig_len), [self.B, 1, 1]);
+                self.eyeK = repmat(eye(self.K), [self.B, 1, 1]);
+                self.eyeL = repmat(eye(self.L), [self.B, 1, 1]);
+                self.eyePmax = repmat(eye(self.pmax), [self.B, 1, 1]);
+
+                # others
+                if self.pul == self.PUL_BIORT:
+                    # bi-orthogonal pulse
+                    self.hw0 = zeros([self.B, self.K, self.L]);
+                    self.hvw0 = zeros([self.B, self.K, self.L]);
+                elif self.pul == self.PUL_RECTA:
+                    # rectangular pulse
+                    self.dftmat = repmat(fft(eye(self.K)), [self.B, 1, 1])*sqrt(1/self.K);      # DFT matrix  
+                    self.idftmat = conj(self.dftmat);                                           # IDFT matrix     
+                    self.piMat = repmat(eye(self.sig_len), [self.B, 1, 1]);                     # permutation matrix (from the delay) -> pi
+
 
     '''
     set the reference signal
@@ -163,28 +158,17 @@ class Modu:
             raise Exception("Full data does not support any reference signal!!!");
         
         # pilot CHE range
-        if self.csiLim:
-            lmax = self.csiLim[0]; kmax = self.csiLim[1];
-            refSig = self.refSig;
-            if self.modu == self.MODU_OTFS_SP_REP_DELAY:
-                refSig = self.refSig[:, 1:lmax+1];
-            pkls = np.asarray(np.where(abs(refSig) > eps))
-            pk0 = pkls[0, 0]
-            pl0 = pkls[1, 0]
-            pkN = pkls[0, -1]
-            plN = pkls[1, -1]
+        if self.modu == self.MODU_OTFS_SP_REP_DELAY:
+            refSig = refSig[:, 1:self.lmax+1]
+        pks, pls = where(abs(refSig) > eps)
+        pk0 = pks[0]
+        pl0 = pls[0]
+        pkN = pks[-1]
+        plN = pls[-1]
             
-            self.pilCheRng = [max(pk0-kmax, 0), min(pkN+kmax, self.K-1), pl0, min(plN + lmax, self.L-1)];
-            self.pilCheRng_klen = self.pilCheRng[1] - self.pilCheRng[0] + 1;
-            self.pilCheRng_len = self.pilCheRng_klen*(self.pilCheRng[3] - self.pilCheRng[2] + 1);
-        
-    
-    '''
-    set the csi if know
-    @Eh:                the energy of each path
-    '''
-    def setCSI(self, Eh):
-        self.Eh = Eh;
+        self.pilCheRng = [max(pk0-self.kmax, 0), min(pkN+self.kmax, self.K-1), pl0, min(plN + self.lmax, self.L-1)];
+        self.pilCheRng_klen = self.pilCheRng[1] - self.pilCheRng[0] + 1;
+        self.pilCheRng_len = self.pilCheRng_klen*(self.pilCheRng[3] - self.pilCheRng[2] + 1);
         
     '''
     check the pulse type
@@ -248,8 +232,8 @@ class Modu:
             raise Exception("Not refence signal is given on the full data frame type!!!");
         
         Phi = zeros([self.B, self.pilCheRng_len, self.pmax]).astype(complex);
-        for yk in arange(self.pilCheRng[0], self.pilCheRng[1]+1):
-            for yl in arange(self.pilCheRng[2], self.pilCheRng[3]+1):
+        for yl in arange(self.pilCheRng[2], self.pilCheRng[3]+1):
+            for yk in arange(self.pilCheRng[0], self.pilCheRng[1]+1):    
                 Phi_ri = (yl - self.pilCheRng[2])*self.pilCheRng_klen + yk - self.pilCheRng[0];
                 for p_id in arange(self.pmax):
                     li = self.lis[p_id];

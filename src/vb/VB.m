@@ -9,16 +9,8 @@ classdef VB < Modu
         %{
         constructor
         %}
-        function self = VB(constel, modu, frame, pul, nTimeslot, nSubcarr, varargin)
+        function self = VB(modu, frame, pul, nTimeslot, nSubcarr, varargin)
             self = self@Modu(modu, frame, pul, nTimeslot, nSubcarr, varargin{:});
-
-            if ~isvector(constel)
-                error("The constellation must be a vector.");
-            else
-                self.constel = reshape(constel, 1, []);            % constellation must be a row vector or an 1D vector
-                self.constel_len = length(constel);
-                self.Ed = sum(abs(constel).^2)/self.constel_len;   % constellation average power
-            end
         end
 
 
@@ -88,7 +80,7 @@ classdef VB < Modu
                 h_mean = alpha*h_vari*Pty;
                 % update gamma
                 c = c + 1;
-                d = d + diag(h_vari) + abs(h_mean).^2;
+                d = d + real(diag(h_vari)) + abs(h_mean).^2;
                 gamma_new = c./d;
 
                 % early stop
