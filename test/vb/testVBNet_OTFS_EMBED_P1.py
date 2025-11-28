@@ -31,8 +31,8 @@ Y_DD = repmat(mat_data['Y_DD'], [B, 1, 1])
 constel = mat_data['constel'].squeeze()
 his = repmat(mat_data['his'], [B, 1])
 his_est0 = repmat(mat_data['his_est0'], [B, 1])
-his_est1_mat = repmat(mat_data['his_est1'], [B, 1, 1])
-his_est2_mat = repmat(mat_data['his_est2'], [B, 1, 1])
+his_est1_mat = repmat(mat_data['his_est1'], [B, 1, 1]).squeeze(-2)
+his_est2_mat = repmat(mat_data['his_est2'], [B, 1, 1]).squeeze(-2)
 
 '''
 VBNet
