@@ -45,7 +45,8 @@ class VB(Modu):
         alpha = ones([self.B, 1, 1])
         gamma = ones([self.B, self.pmax, 1])
         gamma_new = ones([self.B, self.pmax, 1])
-        h_vari = inv(PtP + repmat(eye(self.pmax), [self.B, 1, 1])); 
+        I = diag(ones(self.pmax))
+        h_vari = inv(PtP + I); 
         h_mean = h_vari @ Pty
         update_alpha = False
         if No:
@@ -64,7 +65,7 @@ class VB(Modu):
             
             
             # update h
-            h_vari[upids] = inv(alpha[upids] * PtP[upids] + gamma[upids]*diag(ones(self.pmax)))
+            h_vari[upids] = inv(alpha[upids] * PtP[upids] + gamma[upids]*I)
             h_mean[upids] = alpha[upids]* h_vari[upids] @ Pty[upids];
             # update gamma
             c[upids] = c[upids] + 1;

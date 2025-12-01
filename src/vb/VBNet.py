@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-from torch import arange, ones, zeros, eye, diag, diagonal, kron, reshape, where, einsum, sqrt, exp, conj, real
+from torch import arange, ones, zeros, eye, diag, diagonal, kron, reshape, where, einsum, sqrt, exp, conj
+from torch import real, imag
 from torch import as_tensor as arr
 from torch.fft import fft, ifft
 from torch import tile as repmat
@@ -178,35 +179,53 @@ class VBNet(VB, nn.Module):
     @iter_num:      the maximal iteration
     @es:            early stop
     @es_thres:      early stop threshold (abs)
+    @nn:            use neural network or not
     '''
-    def che(self, Ydd, *, No=None, min_var=eps, iter_num=125, es=True, es_thres=1e-6):
+    def che(self, Ydd, *, No=None, min_var=eps, iter_num=125, es=True, es_thres=1e-6, nn=True):
         Ydd = arr(Ydd).to(self.dev)
         if No:
             No = arr(No).to(self.dev)
+            update_alpha = False
+        else:
+            No = arr(1).to(self.dev)
+            update_alpha = True
         min_var = arr(min_var).to(self.dev)
         es_thres = arr(es_thres).to(self.dev)
-        
+        # base variables
         Yp = Ydd[..., self.pilCheRng[0]:self.pilCheRng[1]+1, self.pilCheRng[2]:self.pilCheRng[3]+1]
         yp = Yp.movedim(-2, -1).contiguous().view(self.B, -1, 1)
-        Z = yp.shape[-2]
         P = self.ref2Phi()
-        PtP = P.movedim(-2, -1).contiguous().conj() @ P
-        Pty = P.movedim(-2, -1).conj() @ yp
-        a = ones(self.B, 1, 1, dtype=self.ftype, device=self.dev)
-        b = ones(self.B, 1, 1, dtype=self.ftype, device=self.dev)
-        c = ones(self.B, self.pmax, 1, dtype=self.ftype, device=self.dev)
-        d = ones(self.B, self.pmax, 1, dtype=self.ftype, device=self.dev)
-        alpha = ones(self.B, 1, 1, dtype=self.ftype, device=self.dev)
-        gamma = ones(self.B, self.pmax, 1, dtype=self.ftype, device=self.dev)
-        gamma_new = ones(self.B, self.pmax, 1, dtype=self.ftype, device=self.dev)
-        h_vari = inv(PtP + repmat(eye(self.pmax, dtype=self.ftype, device=self.dev), [self.B, 1, 1])) 
-        h_mean = h_vari @ Pty
-        I = diag(ones(self.pmax, device=self.dev))
-        update_alpha = False
-        if No:
-            alpha = alpha/No
+        # extra variables
+        if not nn:
+            Z = yp.shape[-2]
+            PtP = P.movedim(-2, -1).contiguous().conj() @ P
+            Pty = P.movedim(-2, -1).conj() @ yp
+            a = ones(self.B, 1, 1, dtype=self.ftype, device=self.dev)
+            b = ones(self.B, 1, 1, dtype=self.ftype, device=self.dev)
+            c = ones(self.B, self.pmax, 1, dtype=self.ftype, device=self.dev)
+            d = ones(self.B, self.pmax, 1, dtype=self.ftype, device=self.dev)
+            alpha = repmat(1/No, [self.B,1,1])
+            gamma = ones(self.B, self.pmax, 1, dtype=self.ftype, device=self.dev)
+            gamma_new = ones(self.B, self.pmax, 1, dtype=self.ftype, device=self.dev)
+            I = diag(ones(self.pmax, device=self.dev))
+            h_vari = inv(PtP + repmat(eye(self.pmax, dtype=self.ftype, device=self.dev), [self.B, 1, 1])) 
+            h_mean = h_vari @ Pty
+            
         else:
-            update_alpha = True
+            yp = cat([real(yp), imag(yp)], -2)
+            Z = yp.shape[-2]
+            P = cat([cat([real(P), -imag(P)], -1), cat([imag(P), real(P)], -1)], -2)
+            PtP = P.movedim(-2, -1).contiguous().conj() @ P
+            Pty = P.movedim(-2, -1).conj() @ yp
+            a = ones(self.B, 1, 1, dtype=self.ftype, device=self.dev)
+            b = repmat(arr(2, dtype=self.ftype, device=self.dev), [self.B, 1, 1])
+            c = ones(self.B, 2*self.pmax, 1, dtype=self.ftype, device=self.dev)
+            d = repmat(arr(2, dtype=self.ftype, device=self.dev), [self.B, 2*self.pmax, 1, 1])
+            I = diag(ones(2*self.pmax, device=self.dev))
+            h_vari = inv(PtP + I) 
+            h_mean = h_vari @ Pty
+            
+            
             
         # VB CHE 
         upids = arange(self.B, dtype=self.itype).to(self.dev)
@@ -229,27 +248,10 @@ class VBNet(VB, nn.Module):
             
             if es:
                 upids = torch.sum(abs(gamma_new - gamma)**2, axis=(-2,-1))/torch.sum(gamma.abs()**2, axis=(-2,-1)) >= es_thres
-                if sum(upids) == 0:
+                if torch.sum(upids) == 0:
                     break
                 upids = where(upids)[0]
             gamma[upids] = gamma_new[upids]
                 
         return h_mean.squeeze(-1)
-    
-    '''
-    channel estimation using GNN
-    @Ydd:           Rx in the DD domain
-    <OPT>
-    @No:            the noise power
-    @min_var:       the minimal variance.
-    @iter_num:      the maximal iteration
-    @es:            early stop
-    @es_thres:      early stop threshold (abs)
-    '''
-    def cheNN(self, Ydd, *, No=None, min_var=eps, iter_num=125, es=True, es_thres=1e-6):
-        Ydd = arr(Ydd).to(self.dev)
-        if No:
-            No = arr(No).to(self.dev)
-        min_var = arr(min_var).to(self.dev)
-        es_thres = arr(es_thres).to(self.dev)
     
