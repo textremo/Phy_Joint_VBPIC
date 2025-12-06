@@ -474,8 +474,8 @@ p(y,\Theta) = p(y|h,\alpha)p(y|\beta, \gamma)p(\beta)p(\gamma)
 	\end{align}
 		Here, we can see that the covariance is 
 	\begin{align}
-	\bm\Sigma_h^{(t+1)} &= \left(\alpha\bm\Phi_h^H\bm\Phi_h + \text{diag}(\bm\gamma^{(t)})\bm\beta^{(t)}\right)^{-1} \\
-	\bm\mu^{(t+1)} &= \bm\Sigma_h^{(t+1)} (\alpha\bm\Phi_p^H\bm y_p + \text{diag}(\bm\gamma^{(t)})\bm\beta^{(t)} )
+	\bm\Sigma_h^{(t+1)} &= \left(\alpha\bm\Phi_h^H\bm\Phi_h + \text{diag}(\bm\gamma^{(t)})\right)^{-1} \\
+	\bm\mu^{(t+1)} &= \bm\Sigma_h^{(t+1)} (\alpha\bm\Phi_p^H\bm y_p + \text{diag}(\bm\gamma^{(t)})\bm\mu_{\beta}^{(t)} )
 	\end{align}
 \item \colorbox{yellow}{Update $q(\gamma)$}
 	\begin{align}
