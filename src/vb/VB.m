@@ -19,6 +19,7 @@ classdef VB < Modu
         @Ydd:           Rx in the DD domain
         <OPT>
         @No:            the noise power
+        @Eh:            the power of a path
         @min_var:       the minimal variance.
         @iter_num:      the maximal iteration
         @es:            early stop
@@ -32,6 +33,7 @@ classdef VB < Modu
             % load optional inputs 
             inPar = inputParser;
             addParameter(inPar, "No",         NaN);
+            addParameter(inPar, "Eh",         NaN);
             addParameter(inPar, "min_var",    eps);
             addParameter(inPar, "iter_num",   125);
             addParameter(inPar, "es",  true);
@@ -40,6 +42,7 @@ classdef VB < Modu
             inPar.CaseSensitive = false;
             parse(inPar, varargin{:});
             No          = inPar.Results.No;
+            Eh          = inPar.Results.Eh;
             min_var     = inPar.Results.min_var;
             iter_num    = inPar.Results.iter_num;
             es          = inPar.Results.es;
@@ -55,15 +58,26 @@ classdef VB < Modu
             a = 1; b = 1;
             c = ones(self.pmax, 1);
             d = ones(self.pmax, 1);
-            alpha = 1;
+            
+            
             gamma = ones(self.pmax, 1);
             h_vari = inv(PtP + eye(self.pmax));
             h_mean = h_vari*Pty;
+            % alpha
+            alpha = 1;
             update_alpha = false;
             if ~isnan(No)
                 alpha = 1/No;
             else
                 update_alpha = true;
+            end
+            % beta
+            beta_mean = zeros(self.pmax, 1);
+            beta_vari = ones(self.pmax, 1);
+            update_beta = false;
+            if ~isnan(Eh)
+                beta_vari = Eh*beta_vari;
+                update_beta = true;
             end
             
             % VB CHE
@@ -77,11 +91,18 @@ classdef VB < Modu
 
                 % update h
                 h_vari = inv(alpha*PtP + diag(gamma));
-                h_mean = alpha*h_vari*Pty;
+                %h_mean = h_vari*alpha*Pty;
+                h_mean = h_vari*(alpha*Pty + gamma.*beta_mean);
                 % update gamma
                 c = c + 1;
-                d = d + real(diag(h_vari)) + abs(h_mean).^2;
+                %d = d + real(diag(h_vari)) + abs(h_mean).^2;
+                d = d + real(diag(h_vari)) + abs(h_mean).^2 - conj(beta_mean).*h_mean - conj(h_mean).*beta_mean + real(beta_vari) + abs(beta_mean).^2;
                 gamma_new = c./d;
+                % update beta
+                if update_beta
+                    beta_vari = 1./(gamma + beta_vari.^(-1));
+                    beta_mean = beta_vari.*(gamma.*h_mean + beta_mean./beta_vari);
+                end
 
                 % early stop
                 if es

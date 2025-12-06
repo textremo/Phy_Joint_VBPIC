@@ -43,9 +43,9 @@ vb.setConstel(constel)
 vb.setDataLoc(dataLocs);
 vb.setRef(refSig);
 
-his_est1 = vb.che(Y_DD, "No", No);
+his_est1 = vb.che(Y_DD, "No", No, Eh=1/p);
 his_est1 = his_est1.';
-his_est2 = vb.che(Y_DD);
+his_est2 = vb.che(Y_DD, Eh=1/p);
 his_est2 = his_est2.';
 hm = abs(his) > 0;
 % print
