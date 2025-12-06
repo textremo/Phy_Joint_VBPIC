@@ -447,8 +447,63 @@ If we assume the noise is known to us, the estimation process can be simplified 
 	
 \end{enumerate}
 
+\subsubsection{Enhanced Simplified OTFS Channel Estimation using VB}
+Now, we assume $p(h_i)\sim \mathcal{CN}(\beta_i, \gamma_i^{-1})$ and $p(\beta_i)\sim \mathcal{CN}(\mu_{\beta_i}, \sigma^2_{\beta_i})$. Therefore,
+\[
+p(y,\Theta) = p(y|h,\alpha)p(y|\beta, \gamma)p(\beta)p(\gamma)
+\]
+\begin{enumerate}
+\item \colorbox{yellow}{Update $q(h)$}
+\begin{align}
+	q^{(t+1)}(h) &\propto exp( \mathbb{E}_{q^{(t)}_{-h}}[\text{ln}p(y,\Theta)] \} ) \\
+	lnq^{(t+1)}(h) &\propto \mathbb{E}_{q^{(t)}_{-h}}\{\text{ln}p(y,\Theta)\} \\
+	&\propto \mathbb{E}_{q^{(t)}_{-h}}\{lnp(y|h,\alpha)\} + \mathbb{E}_{q^{(t)}_{-h}}\{lnp(h|\beta^{t},\gamma^{(t)})\} \\
+	&\propto -\alpha\Vert \bm y_p-\bm\Phi_p\bm h \Vert^2 - (\bm h -\beta^{(t)})^H\text{diag}(\bm\gamma^{(t)})(\bm h - \beta^{(t)}) \\
+	\end{align}    
+	First, we open the left
+	\begin{equation}
+	-\alpha\Vert \bm y_p-\bm\Phi_p\bm h \Vert^2 \propto \alpha\bm h^H\bm\Phi_p^H\bm y_p + \alpha\bm y_p^H\bm\Phi_p\bm h - \alpha\bm h^H\bm\Phi_h^H\bm\Phi_h\bm h
+	\end{equation}
+	Then, we open the right
+	\begin{equation}
+	(\bm h -\beta^{(t)})^H\text{diag}(\bm\gamma^{(t)})(\bm h - \beta^{(t)}) \propto \bm \beta^{(t)^H}\text{diag}(\bm\gamma^{(t)})\bm h + \bm h^H\text{diag}(\bm\gamma^{(t)})\bm\beta^{(t)} - \bm h^H\text{diag}(\bm\gamma^{(t)})\bm h
+	\end{equation}
+	Therefore,
+	\begin{align}
+	q^{(t+1)}(h) &\propto h^H(\alpha\bm\Phi_p^H\bm y_p + \text{diag}(\bm\gamma^{(t)})\bm\beta^{(t)}) + \bm h^H(\alpha\bm\Phi_h^H\bm\Phi_h + \text{diag}(\bm\gamma^{(t)}))\bm h
+	\end{align}
+		Here, we can see that the covariance is 
+	\begin{align}
+	\bm\Sigma_h^{(t+1)} &= \left(\alpha\bm\Phi_h^H\bm\Phi_h + \text{diag}(\bm\gamma^{(t)})\bm\beta^{(t)}\right)^{-1} \\
+	\bm\mu^{(t+1)} &= \bm\Sigma_h^{(t+1)} (\alpha\bm\Phi_p^H\bm y_p + \text{diag}(\bm\gamma^{(t)})\bm\beta^{(t)} )
+	\end{align}
+\item \colorbox{yellow}{Update $q(\gamma)$}
+	\begin{align}
+	\text{ln}q^{(t+1)}(\gamma) &\propto lnp(h|\beta,\gamma) + lnp(\gamma)\\
+	&\propto \sum_{l=0}^{P_\max}\left( \text{ln}(\gamma_l) - \gamma_l\Vert h_l^{(t+1)} -\beta_l \Vert^2 + (c-1)\text{ln}\gamma_l -d\gamma_l \right) \\
+	&\propto \sum_{l=0}^{P_\max}(c+1 -1)\text{ln}\gamma_l - \gamma_l(d + \Vert h_l^{(t+1)} -\beta_l \Vert^2 ) \\
+	&\propto \sum_{l=0}^{P_\max}(c+1 -1)\text{ln}\gamma_l - \gamma_l(d + \Vert h_l^{(t+1)}\Vert^2  - \beta_l^H h -h_l^H\beta_l + \Vert\beta_l\Vert^2 ) \\
+	&\propto \sum_{l=0}^{P_\max}(c+1 -1)\text{ln}\gamma_l - \gamma_l(d + \Vert h_l^{(t+1)}\Vert^2  - \mu_{\beta_l}^H \mu_l -{\mu_l}^H \mu_{\beta_l} + \Vert\beta_l\Vert^2 ) \\
+	\end{align}
+	where $\Vert h_l^{(t+1)} \Vert^2 = \Sigma_{h_l}^{t+1} + |\mu_{h_l}^{t+1}|^2$, $\Vert\beta_l\Vert^2 =\sigma_{\beta_l}^2 + |\mu_{\beta_l}^{(t+1)}|^2$
 
 
+\item \colorbox{yellow}{Update $q(\beta)$}
+\begin{align}
+\text{ln}q^{(t+1)}(\beta) &\propto lnp(h|\beta,\gamma) + lnp(\beta) \\
+&\propto \sum_{l=0}^{P_\max}\left( - \gamma_l\Vert h_l^{(t+1)} -\beta_l \Vert^2 - \sigma_{\beta_l}^{-2}\Vert \beta_l - \mu_{\beta_l} \Vert^2 \right) \\
+&\propto \sum_{l=0}^{P_\max} -(\gamma_l + \sigma_{\beta_l}^{-2})\beta_l^H\beta_l +\beta_l^H(\gamma_l\mu_{h_l} + \sigma_{\beta_l}^{-2}\mu_{\beta_l} )\\
+\end{align}
+Therefore,
+\begin{align}
+\sigma_{\beta_l}^{{(t+1)}^2} &= (\gamma_l + \sigma_{\beta_l}^{-2})^{-1} \\
+\mu_{\beta_l} &= \sigma_{\beta_l}^{{(t+1)}^2}( \gamma_l\mu_{h_l} + \sigma_{\beta_l}^{-2}\mu_{\beta_l}  ) 
+\end{align}
+
+
+\end{enumerate}
+
+	% \\
 
 \subsection{Symbol Detection}
 In this section, \colorbox{yellow}{we assume the channel is known}. The target is to find the channel and the symbol to maximize the posterior, i.e.,
