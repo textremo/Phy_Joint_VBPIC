@@ -14,3 +14,4 @@ class TelecommGNN(nn.Module):
     '''
     def __init__(self, iter_num, neuron_num=64):
         super().__init__()
+        
