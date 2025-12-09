@@ -21,6 +21,10 @@ except:
     from .VB import VB
 
 class VBPICNet(VB, nn.Module):
+    NN_TYPE_MEANVARI = 1;       # use mean and variance as extra features
+    NN_TYPE_MEANCOVA = 2;       # use mean and covariance as extra features
+    
+    
     '''
     to
     '''
@@ -254,13 +258,105 @@ class VBPICNet(VB, nn.Module):
         return h_mean.squeeze(-1)
     
     '''
-    generate features (y=Hx+No, x_mean, x_vari)
-    @y:         y, [(batch_size), KL, 1]
-    @H:         H or Phi, [(batch_size), KL*KL] or [(batch_size), KL*pmax]
-    @No:        the noise power, scalar
-    @x_mean:    the estimated mean, [(batch_size), KL, 1] or [(batch_size), pmax, 1]
-    @x_cova:    the estimated covariance, [(batch_size), KL, KL] or [(batch_size), pmax, pmax]
+    detect
+    @Y:             OFDM/OTFS frame [(batch_size), M, N] or [(batch_size), K, L]
+    @h:             initial channel estimation - path gains [B, Pmax]
+    @hv:            initial channel estimation - variance   [B, Pmax]
+    @hm:            initial channel estimation - mask       [B, Pmax]
+    @No:            the noise power
+    <opt>
+    @min_var:       the minimal variance 1e-10 by default
+    @sym_map:       false by default. If true, the output will be mapped to the constellation
     '''
-    def genFeatures(self, y, H, No, x_mean, x_cova):
-        pass
+    def detect(self, Y, h, hv, hm, No, *, min_var=1e-10, sym_map=False):
+        Y = arr(Y).to(self.dev)
+        h = arr(h).to(self.dev)
+        hv = arr(hv).to(self.dev)
+        hm = arr(hm).to(self.dev) 
+        No = arr(No).to(self.dev)
+        if self.modu in self.MODUS_OFDM:
+            if Y.shape[0]!= self.B or Y.shape[-2] != self.M or Y.shape[-1] != self.N:
+                raise Exception("The received frame does is not the correct shape!!!")
+        if self.modu in self.MODUS_OTFS:
+            if Y.shape[0]!= self.B or Y.shape[-2] != self.L or Y.shape[-1] != self.L:
+                raise Exception("The received frame does is not the correct shape!!!")
+        #TODO: h, hv, hm check
+        if h.ndim <= 2:
+            h = h[..., None]
+        if hv.ndim <= 2:
+            hv = hv[..., None]
+        if hm.ndim <= 2:
+            hm = hm[..., None]
+        if No.ndim == 0:
+            No = repmat(No, [self.B, 1, 1])
+        elif No.ndim == 1:
+            No = No[..., None, None]
+        else:
+            raise Exception("The noise power is not in the correct shape!!!")
+        
+    #--------------------------------------------------------------------------
+    # OTFS functions
+    def h2H(self, h, *, hv=None, hm=None, min_var=eps):
+        if not hv:
+            hv = ones([self.B, self.pmax]);
+        if not hm:
+            hm = ones([self.B, self.pmax]);
+        
+        # to H
+        H = self.H0;
+        Hv = self.Hv0;
+        if self.pul == self.PUL_BIORT:
+            pass
+        if self.pul == self.PUL_RECTA:
+            for tap_id in range(self.pmax):
+                hmi = hm[..., tap_id];
+                # only accumulate when there are at least a path
+                if np.any(hmi):
+                    hi = h[..., tap_id]
+                    hvi = hv[..., tap_id]
+                    li = self.lis[tap_id].item()
+                    ki = self.kis[tap_id].item()
+                    # delay
+                    piMati = circshift(self.piMat, li, 1); 
+                    # Doppler
+                    timeSeq = repmat(circshift(arange(-li, self.sig_len-li), -li), [self.B, 1])
+                    deltaMat_diag = exp(2j*pi*ki/(self.sig_len)*timeSeq);
+                    deltaMati = deltaMat_diag[..., None]*eye(self.sig_len)
+                    # Pi, Qi, & Ti
+                    Pi = einsum('...ij,...kl->...ikjl', self.dftmat, self.eyeL).reshape(self.B, self.sig_len, self.sig_len) @ piMati 
+                    Qi = deltaMati @ einsum('...ij,...kl->...ikjl', self.idftmat, self.eyeL).reshape(self.B, self.sig_len, self.sig_len)
+                    Ti = Pi @ Qi;
+                    H = H + hi.reshape(-1, 1, 1) * Ti;
+                    Hv = Hv + hvi.reshape(-1, 1, 1)*abs(Ti);
+ 
+        # set the minimal variance
+        Hv = Hv.clip(min_var)
+        return H, Hv
     
+    #--------------------------------------------------------------------------
+    # AI related functions
+    '''
+    to real
+    @in0:   a vector or a matrix [B, a, 1] or [B, a, b]
+    '''
+    def toReal(self, in0):
+        if in0.shape[-1] == 1:
+            out0 = cat([real(in0), imag(in0)], -2)
+        else:
+            out0 = cat([cat([real(in0), -imag(in0)], -1), cat([imag(in0), real(in0)], -1)], -2)
+        return out0
+    
+    
+    '''
+    generate features (y=H*x+No or y=Phi*h+No)
+    @in0:       y, [(batch_size), KL, 1]
+    @in1:       H or Phi, [(batch_size), KL*KL] or [(batch_size), KL*pmax]
+    @in2:       the noise power, scalar
+    @in3:       the estimated mean, [(batch_size), KL, 1] or [(batch_size), pmax, 1]
+    @in4:       (1) the estimated variance, [(batch_size), KL, 1] or [(batch_size), pmax, 1]
+                (2) the estimated covariance, [(batch_size), KL, KL] or [(batch_size), pmax, pmax]
+    '''
+    def genFeatures(self, in0, in1, in2, in3, in4):
+        # input check
+        pass
+        

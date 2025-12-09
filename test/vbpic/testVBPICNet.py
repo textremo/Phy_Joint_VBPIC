@@ -40,3 +40,8 @@ otfs.setChannel(p, lmax, kmax)
 otfs.passChannel(No)
 his, lis, kis = otfs.getCSI()
 H_DD = otfs.getChannel()
+
+'''
+VBPICNet
+'''
+vbpicnn = VBPICNet(Modu.MODU_OTFS_EMBED, Modu.FT_CP, Modu.PUL_RECTA, N, M, B=B)
