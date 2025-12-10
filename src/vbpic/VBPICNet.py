@@ -37,7 +37,7 @@ class VBPICNet(VB, nn.Module):
     '''
     constructor
     '''
-    def __init__(self, modu, frame, pul, nTimeslot, nSubcarr, B=None, dev=torch.device('cpu')):
+    def __init__(self, modu, frame, pul, nTimeslot, nSubcarr, B=None, dev=torch.device('cpu'), *, iter_num=10):
         # data precision
         self.ftype = torch.get_default_dtype()
         if self.ftype == torch.float16:
@@ -50,7 +50,9 @@ class VBPICNet(VB, nn.Module):
             self.itype = torch.int64
             self.ctype = torch.complex128
         # device
-        self.dev = dev        
+        self.dev = dev
+        # iter_num
+        self.iter_num = iter_num
             
         # init
         nn.Module.__init__(self)
@@ -135,7 +137,7 @@ class VBPICNet(VB, nn.Module):
         
         # pilot CHE range
         if self.modu == self.MODU_OTFS_SP_REP_DELAY:
-            refSig = refSig[:, 1:self.lmax+1];
+            refSig = refSig[:, 0:self.lmax+1]
         pks, pls = where(refSig.abs() > eps)
         pk0 = pks[0]
         pl0 = pls[0]
@@ -146,6 +148,8 @@ class VBPICNet(VB, nn.Module):
                                   pl0,                    min(plN + self.lmax, self.L-1)]))
         self.register_buffer('pilCheRng_klen', self.pilCheRng[1] - self.pilCheRng[0] + 1)
         self.register_buffer('pilCheRng_len', self.pilCheRng_klen*(self.pilCheRng[3] - self.pilCheRng[2] + 1))
+        # P Q
+        
         
     '''
     refSig to Phi
@@ -278,7 +282,7 @@ class VBPICNet(VB, nn.Module):
             if Y.shape[0]!= self.B or Y.shape[-2] != self.M or Y.shape[-1] != self.N:
                 raise Exception("The received frame does is not the correct shape!!!")
         if self.modu in self.MODUS_OTFS:
-            if Y.shape[0]!= self.B or Y.shape[-2] != self.L or Y.shape[-1] != self.L:
+            if Y.shape[0]!= self.B or Y.shape[-2] != self.K or Y.shape[-1] != self.L:
                 raise Exception("The received frame does is not the correct shape!!!")
         #TODO: h, hv, hm check
         if h.ndim <= 2:
@@ -293,14 +297,22 @@ class VBPICNet(VB, nn.Module):
             No = No[..., None, None]
         else:
             raise Exception("The noise power is not in the correct shape!!!")
+        # to real
+        Y = self.toReal(Y)
+        
+        for t in range(self.iter_num):
+            H = self.h2H(h, hv, hm)
+            Ht = H.transpose(-1, -2).conj()
+            
         
     #--------------------------------------------------------------------------
     # OTFS functions
-    def h2H(self, h, *, hv=None, hm=None, min_var=eps):
-        if not hv:
-            hv = ones([self.B, self.pmax]);
-        if not hm:
-            hm = ones([self.B, self.pmax]);
+    def h2H(self, h, hv, hm, min_var=eps):
+        # remove the last dimension
+        h = h.squeeze(-1)
+        hv = hv.squeeze(-1)
+        hm = hm.squeeze(-1)
+        
         
         # to H
         H = self.H0;
