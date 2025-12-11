@@ -5,6 +5,7 @@ from torch import real, imag
 from torch import as_tensor as arr
 from torch.fft import fft, ifft
 from torch import tile as repmat
+from torch import roll as circshift
 from torch.linalg import inv
 from torch import squeeze as sqz
 from torch import unsqueeze as usqz
@@ -32,7 +33,7 @@ class VBPICNet(VB, nn.Module):
         super().to(*args)
         self.K = arr(self.K).to(*args)
         self.L = arr(self.L).to(*args)
-        self.sig_len = arr(self.L).to(*args)
+        self.sig_len = arr(self.sig_len).to(*args)
         
     '''
     constructor
@@ -100,28 +101,52 @@ class VBPICNet(VB, nn.Module):
                 self.register_buffer("kis",      repmat(arange(-kmax, kmax+1), [lmax+1]))
                 # H0
                 self.register_buffer("H0",       zeros(self.B, self.sig_len, self.sig_len, dtype=self.ctype))
-                self.register_buffer("Hv0",      zeros(self.B, self.sig_len, self.sig_len))
+                self.register_buffer("HtH0",     zeros(self.B, self.sig_len, self.sig_len, dtype=self.ctype))
                 # off-diagonal
                 self.register_buffer("off_diag", repmat(eye(self.sig_len)+1 - eye(self.sig_len)*2, [self.B, 1, 1]))
                 # eye
                 self.register_buffer("eyeKL",    repmat(eye(self.sig_len, dtype=self.ctype), [self.B, 1, 1]))
                 self.register_buffer("eyeK",     repmat(eye(self.K, dtype=self.ctype), [self.B, 1, 1]))
-                self.register_buffer("eyeL",     repmat(eye(self.L, dtype=self.ctype), [self.B, 1, 1]))
                 self.register_buffer("eyePmax",  repmat(eye(self.pmax, dtype=self.ctype), [self.B, 1, 1]))
                 # others
                 if self.pul == self.PUL_BIORT:
                     # bi-orthogonal pulse
                     self.register_buffer('hw0', zeros(self.B, self.K, self.L, dtype=self.ctype))
                     self.register_buffer('hvw0', zeros(self.B, self.K, self.L, dtype=self.ctype))
-                elif self.pul == self.PUL_RECTA:
-                    # rectangular pulse
-                    # DFT matrix
-                    self.register_buffer('dftmat', repmat(fft(eye(self.K))*sqrt(arr(1/self.K)), [self.B, 1, 1]))
-                    # IDFT matrix
-                    self.register_buffer('idftmat',conj(self.dftmat))
-                    # permutation matrix (from the delay) -> pi
-                    self.register_buffer('piMat', repmat(eye(self.sig_len, dtype=self.ctype), [self.B, 1, 1]))
-                    
+                # Ts
+                if self.pul == self.PUL_BIORT:
+                    pass
+                if self.pul == self.PUL_RECTA:
+                    # tmp variables
+                    dftmat = repmat(fft(eye(self.K))*sqrt(arr(1/self.K)), [self.B, 1, 1])   # DFT matrix
+                    idftmat = conj(dftmat)                                                  # IDFT matrix
+                    piMat = repmat(eye(self.sig_len, dtype=self.ctype), [self.B, 1, 1])     # permutation matrix (from the delay) -> pi
+                    eyeL = repmat(eye(self.L, dtype=self.ctype), [self.B, 1, 1]);
+                    # the T to register [pmax, B, KL, KL]
+                    Ts = zeros(self.pmax, self.B, self.sig_len, self.sig_len, dtype=self.ctype)
+                    for tap_id in range(self.pmax):
+                        li = self.lis[tap_id].item()
+                        ki = self.kis[tap_id].item()
+                            
+                        # delay
+                        piMati = circshift(piMat, li, 1); 
+                        # Doppler
+                        timeSeq = repmat(circshift(arange(-li, self.sig_len-li), -li), [self.B, 1])
+                        deltaMat_diag = exp(2j*pi*ki/(self.sig_len)*timeSeq);
+                        deltaMati = torch.diag_embed(deltaMat_diag)
+                        # Pi, Qi, & Ti
+                        Pi = einsum('...ij,...kl->...ikjl', dftmat, eyeL).reshape(self.B, self.sig_len, self.sig_len) @ piMati 
+                        Qi = deltaMati @ einsum('...ij,...kl->...ikjl', idftmat, eyeL).reshape(self.B, self.sig_len, self.sig_len)
+                        Ti = Pi @ Qi;
+                        Ts[tap_id, ...] = Ti
+                self.register_buffer("Ts", Ts)
+                # \Psi (phase shift matrix)
+                for tap_id in range(self.pmax):
+                    pass
+                
+                # C (permuatation matrix)
+                
+                
     '''
     set the reference signal
     @refSig:         the reference sigal of [N, M] or [K, L], 0 at non-ref locations
@@ -148,8 +173,6 @@ class VBPICNet(VB, nn.Module):
                                   pl0,                    min(plN + self.lmax, self.L-1)]))
         self.register_buffer('pilCheRng_klen', self.pilCheRng[1] - self.pilCheRng[0] + 1)
         self.register_buffer('pilCheRng_len', self.pilCheRng_klen*(self.pilCheRng[3] - self.pilCheRng[2] + 1))
-        # P Q
-        
         
     '''
     refSig to Phi
@@ -307,43 +330,50 @@ class VBPICNet(VB, nn.Module):
         
     #--------------------------------------------------------------------------
     # OTFS functions
-    def h2H(self, h, hv, hm, min_var=eps):
+    '''
+    
+    '''
+    def h2H(self, h, hv, hm):
         # remove the last dimension
         h = h.squeeze(-1)
         hv = hv.squeeze(-1)
         hm = hm.squeeze(-1)
         
-        
         # to H
-        H = self.H0;
-        Hv = self.Hv0;
+        H = self.H0
+        HtH = self.HtH
         if self.pul == self.PUL_BIORT:
             pass
         if self.pul == self.PUL_RECTA:
-            for tap_id in range(self.pmax):
-                hmi = hm[..., tap_id];
-                # only accumulate when there are at least a path
-                if np.any(hmi):
-                    hi = h[..., tap_id]
-                    hvi = hv[..., tap_id]
-                    li = self.lis[tap_id].item()
-                    ki = self.kis[tap_id].item()
-                    # delay
-                    piMati = circshift(self.piMat, li, 1); 
-                    # Doppler
-                    timeSeq = repmat(circshift(arange(-li, self.sig_len-li), -li), [self.B, 1])
-                    deltaMat_diag = exp(2j*pi*ki/(self.sig_len)*timeSeq);
-                    deltaMati = deltaMat_diag[..., None]*eye(self.sig_len)
-                    # Pi, Qi, & Ti
-                    Pi = einsum('...ij,...kl->...ikjl', self.dftmat, self.eyeL).reshape(self.B, self.sig_len, self.sig_len) @ piMati 
-                    Qi = deltaMati @ einsum('...ij,...kl->...ikjl', self.idftmat, self.eyeL).reshape(self.B, self.sig_len, self.sig_len)
-                    Ti = Pi @ Qi;
-                    H = H + hi.reshape(-1, 1, 1) * Ti;
-                    Hv = Hv + hvi.reshape(-1, 1, 1)*abs(Ti);
+            for i in range(self.pmax):
+                hmi = hm[..., i]
+                if torch.any(hmi):
+                    hi = h[..., i]
+                    H = H + hi.reshape(-1, 1, 1) * self.Ts[i]
+                    for j in range(self.pmax):
+                        hmj = hm[..., j]
+                
+                
+                # # only accumulate when there are at least a path
+                # if np.any(hmi):
+                #     hi = h[..., tap_id]
+                #     hvi = hv[..., tap_id]
+                #     # delay
+                #     piMati = circshift(self.piMat, li, 1); 
+                #     # Doppler
+                #     timeSeq = repmat(circshift(arange(-li, self.sig_len-li), -li), [self.B, 1])
+                #     deltaMat_diag = exp(2j*pi*ki/(self.sig_len)*timeSeq);
+                #     deltaMati = deltaMat_diag[..., None]*eye(self.sig_len)
+                #     # Pi, Qi, & Ti
+                #     Pi = einsum('...ij,...kl->...ikjl', self.dftmat, self.eyeL).reshape(self.B, self.sig_len, self.sig_len) @ piMati 
+                #     Qi = deltaMati @ einsum('...ij,...kl->...ikjl', self.idftmat, self.eyeL).reshape(self.B, self.sig_len, self.sig_len)
+                #     Ti = Pi @ Qi;
+                #     H = H + hi.reshape(-1, 1, 1) * Ti;
+                #     Hv = Hv + hvi.reshape(-1, 1, 1)*abs(Ti);
  
         # set the minimal variance
-        Hv = Hv.clip(min_var)
-        return H, Hv
+        # Hv = Hv.clip(min_var)
+        return H, HtH
     
     #--------------------------------------------------------------------------
     # AI related functions
