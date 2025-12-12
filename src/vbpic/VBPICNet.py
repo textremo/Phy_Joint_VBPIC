@@ -58,6 +58,8 @@ class VBPICNet(VB, nn.Module):
         # init
         nn.Module.__init__(self)
         VB.__init__(self, modu, frame, pul, nTimeslot, nSubcarr, B=B)
+        # dataLoc
+        self.register_buffer('dataLocs', ones(B, self.sig_len, self.sig_len))
         
     '''
     set constel
@@ -90,6 +92,8 @@ class VBPICNet(VB, nn.Module):
             else:
                 kmax = args[-2]
                 lmax = args[-1]
+                eyeL = repmat(eye(self.L, dtype=self.ctype), [self.B, 1, 1])
+                
                 self.register_buffer('kmax',     arr(kmax))
                 self.register_buffer('lmax',     arr(lmax))
                 if len(args) >= 3:
@@ -106,7 +110,6 @@ class VBPICNet(VB, nn.Module):
                 self.register_buffer("off_diag", repmat(eye(self.sig_len)+1 - eye(self.sig_len)*2, [self.B, 1, 1]))
                 # eye
                 self.register_buffer("eyeKL",    repmat(eye(self.sig_len, dtype=self.ctype), [self.B, 1, 1]))
-                self.register_buffer("eyeK",     repmat(eye(self.K, dtype=self.ctype), [self.B, 1, 1]))
                 self.register_buffer("eyePmax",  repmat(eye(self.pmax, dtype=self.ctype), [self.B, 1, 1]))
                 # others
                 if self.pul == self.PUL_BIORT:
@@ -121,13 +124,11 @@ class VBPICNet(VB, nn.Module):
                     dftmat = repmat(fft(eye(self.K))*sqrt(arr(1/self.K)), [self.B, 1, 1])   # DFT matrix
                     idftmat = conj(dftmat)                                                  # IDFT matrix
                     piMat = repmat(eye(self.sig_len, dtype=self.ctype), [self.B, 1, 1])     # permutation matrix (from the delay) -> pi
-                    eyeL = repmat(eye(self.L, dtype=self.ctype), [self.B, 1, 1]);
                     # the T to register [pmax, B, KL, KL]
                     Ts = zeros(self.pmax, self.B, self.sig_len, self.sig_len, dtype=self.ctype)
                     for tap_id in range(self.pmax):
                         li = self.lis[tap_id].item()
                         ki = self.kis[tap_id].item()
-                            
                         # delay
                         piMati = circshift(piMat, li, 1); 
                         # Doppler
@@ -139,13 +140,13 @@ class VBPICNet(VB, nn.Module):
                         Qi = deltaMati @ einsum('...ij,...kl->...ikjl', idftmat, eyeL).reshape(self.B, self.sig_len, self.sig_len)
                         Ti = Pi @ Qi;
                         Ts[tap_id, ...] = Ti
-                self.register_buffer("Ts", Ts)
-                # \Psi (phase shift matrix)
-                for tap_id in range(self.pmax):
-                    pass
-                
-                # C (permuatation matrix)
-                
+                self.register_buffer('Ts', Ts)
+                # TtTs
+                TtTs = zeros(self.pmax, self.pmax, self.B, self.sig_len, self.sig_len, dtype=self.ctype)
+                for i in range(self.pmax):
+                    for j in range(self.pmax):
+                        TtTs[i, j, ...] = Ts[i] @ Ts[j] 
+                self.register_buffer("TtTs", TtTs)
                 
     '''
     set the reference signal
@@ -301,6 +302,9 @@ class VBPICNet(VB, nn.Module):
         hv = arr(hv).to(self.dev)
         hm = arr(hm).to(self.dev) 
         No = arr(No).to(self.dev)
+        Xp = self.refSig
+        xp = reshape(xp, [self.B, self.sig_len, 1])
+        
         if self.modu in self.MODUS_OFDM:
             if Y.shape[0]!= self.B or Y.shape[-2] != self.M or Y.shape[-1] != self.N:
                 raise Exception("The received frame does is not the correct shape!!!")
@@ -324,55 +328,51 @@ class VBPICNet(VB, nn.Module):
         Y = self.toReal(Y)
         
         for t in range(self.iter_num):
-            H = self.h2H(h, hv, hm)
+            H, HtH = self.h2H(h, hv, hm)
             Ht = H.transpose(-1, -2).conj()
+            Hty = Ht @ y
+            x_bso = torch.linalg.solve(
+                HtH,
+                Hty - HtH @ xp
+                )
+            
+    '''
+    BSE
+    '''
+    def bse(self, x, v):
+        pass
             
         
     #--------------------------------------------------------------------------
     # OTFS functions
     '''
-    
+    transfer the channel from time domain to the delay Doppler domain
     '''
     def h2H(self, h, hv, hm):
-        # remove the last dimension
+        # remove the last dimension (if it is 1)
         h = h.squeeze(-1)
         hv = hv.squeeze(-1)
         hm = hm.squeeze(-1)
         
         # to H
         H = self.H0
-        HtH = self.HtH
+        HtH = self.HtH0
         if self.pul == self.PUL_BIORT:
             pass
         if self.pul == self.PUL_RECTA:
             for i in range(self.pmax):
+                hi = conj(h[..., i]).reshape(-1, 1, 1)
                 hmi = hm[..., i]
                 if torch.any(hmi):
                     hi = h[..., i]
                     H = H + hi.reshape(-1, 1, 1) * self.Ts[i]
                     for j in range(self.pmax):
+                        hj = h[..., j].reshape(-1, 1, 1)
+                        hvj = hv[..., j].reshape(-1, 1, 1)
                         hmj = hm[..., j]
-                
-                
-                # # only accumulate when there are at least a path
-                # if np.any(hmi):
-                #     hi = h[..., tap_id]
-                #     hvi = hv[..., tap_id]
-                #     # delay
-                #     piMati = circshift(self.piMat, li, 1); 
-                #     # Doppler
-                #     timeSeq = repmat(circshift(arange(-li, self.sig_len-li), -li), [self.B, 1])
-                #     deltaMat_diag = exp(2j*pi*ki/(self.sig_len)*timeSeq);
-                #     deltaMati = deltaMat_diag[..., None]*eye(self.sig_len)
-                #     # Pi, Qi, & Ti
-                #     Pi = einsum('...ij,...kl->...ikjl', self.dftmat, self.eyeL).reshape(self.B, self.sig_len, self.sig_len) @ piMati 
-                #     Qi = deltaMati @ einsum('...ij,...kl->...ikjl', self.idftmat, self.eyeL).reshape(self.B, self.sig_len, self.sig_len)
-                #     Ti = Pi @ Qi;
-                #     H = H + hi.reshape(-1, 1, 1) * Ti;
-                #     Hv = Hv + hvi.reshape(-1, 1, 1)*abs(Ti);
- 
-        # set the minimal variance
-        # Hv = Hv.clip(min_var)
+                        if torch.any(hmj):
+                            hij = hi*hj + hvj if i==j else hi*hj
+                            HtH = HtH + self.TtTs[i, j]*hij
         return H, HtH
     
     #--------------------------------------------------------------------------
