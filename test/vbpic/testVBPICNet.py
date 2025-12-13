@@ -1,3 +1,4 @@
+import gc
 import scipy.io
 import numpy as np
 from numpy import arange, ones, zeros, eye, kron, reshape, einsum, sqrt, exp, conj
@@ -14,6 +15,9 @@ from util import Utils
 from src import *
 
 torch.set_default_dtype(torch.float64)
+dev = torch.device('cpu')
+#dev = torch.device('cuda', index=0) if torch.cuda.is_available() else torch.device('cpu')
+
 
 B = 5
 genconfig("OTFS", "SP_REP_DELAY", "toy")
@@ -75,39 +79,45 @@ his_full = Utils.realH2Hfull(kmax, lmax, his, lis, kis, batch_size=B);
 '''
 VBPICNet
 '''
-vbpicnn = VBPICNet(Modu.MODU_OTFS_SP_REP_DELAY, Modu.FT_CP, Modu.PUL_RECTA, N, M, B=B)
+vbpicnn = VBPICNet(Modu.MODU_OTFS_SP_REP_DELAY, Modu.FT_CP, Modu.PUL_RECTA, N, M, B=B, dev=dev)
 vbpicnn.setCSI(kmax, lmax)
 vbpicnn.setRef(Xp[0])
 vbpicnn.setConstel(constel)
-#vbpicnn.setDataLoc(dataLocs)
+vbpicnn.to(dev)
+vbpicnn.setDataLoc(dataLocs)
+
+vbpicnn.detect(Y_DD, h, hv, hm, No)
+
+vbpicnn = None
+del vbpicnn
+gc.collect()
+torch.cuda.empty_cache()
+
+# Ts = vbpicnn.Ts.numpy()
+
+# phi_rows = []
+# for i in range(vbpicnn.pmax):
+#     phi_rows.append(Ts[i] @ xDD)
+# phi = np.concat(phi_rows, -1)
+# yDD_diff_che = abs(yDD - phi @ his_full[..., None])
+# yDD_diff_che_max = np.max(yDD_diff_che)
 
 
-Ts = vbpicnn.Ts.numpy()
+# H_DD_full = otfs.getChannel(his_full, repmat(vbpicnn.lis.numpy(), [B, 1]), repmat(vbpicnn.kis.numpy(), [B, 1]))
 
-phi_rows = []
-for i in range(vbpicnn.pmax):
-    phi_rows.append(Ts[i] @ xDD)
-phi = np.concat(phi_rows, -1)
-yDD_diff_che = abs(yDD - phi @ his_full[..., None])
-yDD_diff_che_max = np.max(yDD_diff_che)
+# yDD_diff_detect = abs(yDD - H_DD_full @ xDD)
+# yDD_diff_detect_max = np.max(yDD_diff_detect)
 
 
-H_DD_full = otfs.getChannel(his_full, repmat(vbpicnn.lis.numpy(), [B, 1]), repmat(vbpicnn.kis.numpy(), [B, 1]))
+# H_DD_full2 = zeros([B, N*M, N*M], dtype=complex)
+# for i in range(vbpicnn.pmax):
+#     hi = his_full[..., i]
+#     H_DD_full2 = H_DD_full2 + hi.reshape(-1, 1, 1) * Ts[i];
 
-yDD_diff_detect = abs(yDD - H_DD_full @ xDD)
-yDD_diff_detect_max = np.max(yDD_diff_detect)
-
-
-H_DD_full2 = zeros([B, N*M, N*M], dtype=complex)
-for i in range(vbpicnn.pmax):
-    hi = his_full[..., i]
-    H_DD_full2 = H_DD_full2 + hi.reshape(-1, 1, 1) * Ts[i];
-
-yDD_diff_detect2  = abs(yDD - H_DD_full2 @ xDD)
-yDD_diff_detect_max2 = np.max(yDD_diff_detect2)
+# yDD_diff_detect2  = abs(yDD - H_DD_full2 @ xDD)
+# yDD_diff_detect_max2 = np.max(yDD_diff_detect2)
 
 
 
-#vbpicnn.detect(Y_DD, h, hv, hm, No)
 
 

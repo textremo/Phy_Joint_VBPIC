@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch import arange, ones, zeros, eye, diag, diagonal, kron, reshape, where, einsum, sqrt, exp, conj
 from torch import real, imag
+from torch import unique
 from torch import as_tensor as arr
 from torch.fft import fft, ifft
 from torch import tile as repmat
@@ -66,8 +67,9 @@ class VBPICNet(VB, nn.Module):
     '''
     def setConstel(self, constel):
         constel = sqz(arr(constel))
+        constel = unique(real(constel))
         self.register_buffer("constel", constel)
-        self.register_buffer("constel_B_row", repmat(constel, [self.B, 1, 1]))
+        self.register_buffer("constel_B_row", constel)
         self.register_buffer('constel_len', arr(constel.shape[0]))
         self.register_buffer('Ed', torch.sum(constel.abs()**2)/self.constel_len)    # constellation average power
     
@@ -77,6 +79,9 @@ class VBPICNet(VB, nn.Module):
     '''
     def setDataLoc(self, dataLocs):
         dataLocs = arr(dataLocs)
+        if hasattr(self, 'dataLocs'):
+            self.dataLocs = None
+            del self.dataLocs
         self.register_buffer('dataLocs', dataLocs)
         self.data_len = torch.sum(dataLocs)
         
@@ -92,7 +97,7 @@ class VBPICNet(VB, nn.Module):
             else:
                 kmax = args[-2]
                 lmax = args[-1]
-                eyeL = repmat(eye(self.L, dtype=self.ctype), [self.B, 1, 1])
+                eyeL = eye(self.L, dtype=self.ctype)
                 
                 self.register_buffer('kmax',     arr(kmax))
                 self.register_buffer('lmax',     arr(lmax))
@@ -107,10 +112,10 @@ class VBPICNet(VB, nn.Module):
                 self.register_buffer("H0",       zeros(self.B, self.sig_len, self.sig_len, dtype=self.ctype))
                 self.register_buffer("HtH0",     zeros(self.B, self.sig_len, self.sig_len, dtype=self.ctype))
                 # off-diagonal
-                self.register_buffer("off_diag", repmat(eye(self.sig_len)+1 - eye(self.sig_len)*2, [self.B, 1, 1]))
+                #self.register_buffer("off_diag", repmat(eye(self.sig_len)+1 - eye(self.sig_len)*2, [self.B, 1, 1]))
                 # eye
-                self.register_buffer("eyeKL",    repmat(eye(self.sig_len, dtype=self.ctype), [self.B, 1, 1]))
-                self.register_buffer("eyePmax",  repmat(eye(self.pmax, dtype=self.ctype), [self.B, 1, 1]))
+                #self.register_buffer("eyeKL",    repmat(eye(self.sig_len, dtype=self.ctype), [self.B, 1, 1]))
+                #self.register_buffer("eyePmax",  repmat(eye(self.pmax, dtype=self.ctype), [self.B, 1, 1]))
                 # others
                 if self.pul == self.PUL_BIORT:
                     # bi-orthogonal pulse
@@ -121,28 +126,30 @@ class VBPICNet(VB, nn.Module):
                     pass
                 if self.pul == self.PUL_RECTA:
                     # tmp variables
-                    dftmat = repmat(fft(eye(self.K))*sqrt(arr(1/self.K)), [self.B, 1, 1])   # DFT matrix
-                    idftmat = conj(dftmat)                                                  # IDFT matrix
-                    piMat = repmat(eye(self.sig_len, dtype=self.ctype), [self.B, 1, 1])     # permutation matrix (from the delay) -> pi
+                    dftmat = fft(eye(self.K))*sqrt(arr(1/self.K))   # DFT matrix
+                    idftmat = conj(dftmat)                          # IDFT matrix
+                    piMat = eye(self.sig_len, dtype=self.ctype)     # permutation matrix (from the delay) -> pi
                     # the T to register [pmax, B, KL, KL]
-                    Ts = zeros(self.pmax, self.B, self.sig_len, self.sig_len, dtype=self.ctype)
+                    Ts = zeros(self.pmax, self.sig_len, self.sig_len, dtype=self.ctype)
                     for tap_id in range(self.pmax):
                         li = self.lis[tap_id].item()
                         ki = self.kis[tap_id].item()
                         # delay
                         piMati = circshift(piMat, li, 1); 
                         # Doppler
-                        timeSeq = repmat(circshift(arange(-li, self.sig_len-li), -li), [self.B, 1])
+                        timeSeq = circshift(arange(-li, self.sig_len-li), -li)
                         deltaMat_diag = exp(2j*pi*ki/(self.sig_len)*timeSeq);
                         deltaMati = torch.diag_embed(deltaMat_diag)
                         # Pi, Qi, & Ti
-                        Pi = einsum('...ij,...kl->...ikjl', dftmat, eyeL).reshape(self.B, self.sig_len, self.sig_len) @ piMati 
-                        Qi = deltaMati @ einsum('...ij,...kl->...ikjl', idftmat, eyeL).reshape(self.B, self.sig_len, self.sig_len)
+                        #Pi = einsum('...ij,...kl->...ikjl', dftmat, eyeL).reshape(self.sig_len, self.sig_len) @ piMati 
+                        Pi = kron(dftmat, eyeL) @ piMati 
+                        #Qi = deltaMati @ einsum('...ij,...kl->...ikjl', idftmat, eyeL).reshape(self.B, self.sig_len, self.sig_len)
+                        Qi = deltaMati @ kron(idftmat, eyeL)
                         Ti = Pi @ Qi;
                         Ts[tap_id, ...] = Ti
                 self.register_buffer('Ts', Ts)
                 # TtTs
-                TtTs = zeros(self.pmax, self.pmax, self.B, self.sig_len, self.sig_len, dtype=self.ctype)
+                TtTs = zeros(self.pmax, self.pmax, self.sig_len, self.sig_len, dtype=self.ctype)
                 for i in range(self.pmax):
                     for j in range(self.pmax):
                         TtTs[i, j, ...] = Ts[i] @ Ts[j] 
@@ -174,7 +181,10 @@ class VBPICNet(VB, nn.Module):
                                   pl0,                    min(plN + self.lmax, self.L-1)]))
         self.register_buffer('pilCheRng_klen', self.pilCheRng[1] - self.pilCheRng[0] + 1)
         self.register_buffer('pilCheRng_len', self.pilCheRng_klen*(self.pilCheRng[3] - self.pilCheRng[2] + 1))
-        
+    
+    def __del__(self):
+        print()
+    
     '''
     refSig to Phi
     '''
@@ -298,12 +308,14 @@ class VBPICNet(VB, nn.Module):
     '''
     def detect(self, Y, h, hv, hm, No, *, min_var=1e-10, sym_map=False):
         Y = arr(Y).to(self.dev)
+        y = reshape(Y, [self.B, self.sig_len, 1])
         h = arr(h).to(self.dev)
         hv = arr(hv).to(self.dev)
         hm = arr(hm).to(self.dev) 
         No = arr(No).to(self.dev)
-        Xp = self.refSig
-        xp = reshape(xp, [self.B, self.sig_len, 1])
+        Xp = repmat(self.refSig, [self.B, 1, 1])
+        xp = reshape(Xp, [self.B, self.sig_len, 1])
+        min_var = arr(min_var, dtype=self.ctype).to(self.dev)
         
         if self.modu in self.MODUS_OFDM:
             if Y.shape[0]!= self.B or Y.shape[-2] != self.M or Y.shape[-1] != self.N:
@@ -325,22 +337,62 @@ class VBPICNet(VB, nn.Module):
         else:
             raise Exception("The noise power is not in the correct shape!!!")
         # to real
-        Y = self.toReal(Y)
+        Y_r = self.toReal(Y)
+        y_r = self.toReal(y)
         
+        # the estimated noise precision
+        alpha = 1/No
+        # the estimated channel mean and variance (the no-path location is force to small variance)
+        a = zeros(self.B, self.pmax, 1, dtype=self.ctype, device=self.dev)
+        b = ones(self.B, self.pmax, 1, dtype=self.ctype, device=self.dev)
+        b[hm] = min_var
+        # the estimated symbol mean and variance
+        c = zeros(self.B, self.sig_len, 1, dtype=self.ctype, device=self.dev)
+        d = ones(self.B, self.sig_len, 1, dtype=self.ctype, device=self.dev)
+        
+        # VB structure
         for t in range(self.iter_num):
             H, HtH = self.h2H(h, hv, hm)
             Ht = H.transpose(-1, -2).conj()
-            Hty = Ht @ y
-            x_bso = torch.linalg.solve(
-                HtH,
-                Hty - HtH @ xp
-                )
+            # BSO
+            V_bso = inv(alpha*HtH + torch.diag_embed(1/d.squeeze(-1)))
+            x_bso = V_bso @ (alpha * (Ht @ y - HtH @ xp) + c/d)
+            v_bso = usqz(diagonal(V_bso, dim1=-2, dim2=-1), -1)
+            # to real
+            x_bso_r = self.toReal(x_bso)
+            v_bso_r = self.toReal(v_bso)
+            HtH_r = self.toReal(HtH)
+            H_r = self.toReal(H)
+            # GNN
+            # GNN - genFeatures
+            
+            
+            # BSE
+            #x_bse_r, v_bse_r = self.bse(x_bso_r, v_bso_r)
+            
+            print()
             
     '''
     BSE
+    @x: [B, KL, 1]
+    @v: [B, KL, 1]
     '''
-    def bse(self, x, v):
-        pass
+    def bse(self, x, v, *, min_var=5e-11):
+        # BSE - Estimate P(x|y) using Gaussian distribution
+        pxyPdfExpPower = -1/(2*v)*torch.square(x - self.constel_B_row)
+        # BSE - make every row the max power is 0
+        #     - max only consider the real part
+        pxypdfExpNormPower = pxyPdfExpPower - pxyPdfExpPower.max(-1, keepdim=True).values
+        pxyPdf = torch.exp(pxypdfExpNormPower)
+        # BSE - Calculate the coefficient of every possible x to make the sum of all
+        pxyPdfCoeff = 1/pxyPdf.sum(-1, keepdim=True)
+        # BSE - PDF normalisation
+        pxyPdfNorm = pxyPdfCoeff*pxyPdf
+        # BSE - calculate the mean and variance
+        x_bse_d = (pxyPdfNorm*self.constel_B_row).sum(-1, keepdim=True)
+        v_bse_d = (torch.square(x_bse_d - self.constel_B_row)*pxyPdfNorm).sum(-1, keepdim=True)
+        v_bse_d = v_bse_d.clamp(min_var)
+        return x_bse_d, v_bse_d
             
         
     #--------------------------------------------------------------------------
@@ -361,10 +413,9 @@ class VBPICNet(VB, nn.Module):
             pass
         if self.pul == self.PUL_RECTA:
             for i in range(self.pmax):
-                hi = conj(h[..., i]).reshape(-1, 1, 1)
                 hmi = hm[..., i]
                 if torch.any(hmi):
-                    hi = h[..., i]
+                    hi = conj(h[..., i]).reshape(-1, 1, 1)
                     H = H + hi.reshape(-1, 1, 1) * self.Ts[i]
                     for j in range(self.pmax):
                         hj = h[..., j].reshape(-1, 1, 1)
@@ -387,6 +438,23 @@ class VBPICNet(VB, nn.Module):
         else:
             out0 = cat([cat([real(in0), -imag(in0)], -1), cat([imag(in0), real(in0)], -1)], -2)
         return out0
+    '''
+    to complex
+    @in0:   a vector or a matrix [B, a, 1] or [B, a, b]
+    '''
+    def toComplex(self, in0):
+        if in0.shape[-1] == 1:
+            half_id = in0.shape[-2] // 2
+            out0 = in0[..., :half_id] + 1j*in0[..., half_id:]
+        else:
+            row_id_half = in0.shape[-2] // 2
+            col_id_half = in0.shape[-1] // 2
+            
+            out0 = ( in0[..., :row_id_half, :col_id_half] + in0[..., row_id_half:, col_id_half:])*0.5 + \
+                   (-in0[..., :row_id_half, col_id_half:] + in0[..., row_id_half:, :col_id_half])*0.5j
+            
+        return out0
+    
     
     
     '''
