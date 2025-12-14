@@ -54,6 +54,8 @@ class CPE(object):
         self.No = No
         self.rho = chi2.ppf(0.9999, 2*self.area_num)/(2*self.area_num)
         self.thres = self.rho*(Ed + No)
+        # self.rho = chi2.ppf(0.9999, 2)/2
+        # self.thres = self.rho*(Ed + No)/self.area_num
         self.batch_size = B
         
     '''
@@ -86,12 +88,15 @@ class CPE(object):
         
         # we sum all area together
         est_area = np.zeros([self.oc.K, self.area_len], dtype=complex) if self.batch_size is self.BATCH_SIZE_NO else np.zeros([self.batch_size, self.oc.K, self.area_len], dtype=complex);
+        est_area_sqr2 = np.zeros([self.oc.K, self.area_len]) if self.batch_size is self.BATCH_SIZE_NO else np.zeros([self.batch_size, self.oc.K, self.area_len]);
         ca_id_beg = 0;
         ca_id_end = self.area_len;
         # accumulate all areas together
         for area_id in range(self.area_num):
             # build the phase matrix
-            est_area = est_area + Y_DD[..., :, ca_id_beg:ca_id_end]*self.getPhaseConjMat(area_id);
+            tmp_area = Y_DD[..., :, ca_id_beg:ca_id_end]*self.getPhaseConjMat(area_id)
+            est_area = est_area + tmp_area
+            est_area_sqr2 = est_area_sqr2 + abs(tmp_area)**2
             ca_id_beg = ca_id_end;
             ca_id_end = ca_id_end + self.area_len;
         est_area = est_area/self.area_num;
@@ -107,14 +112,17 @@ class CPE(object):
         for l_id in range(0, self.area_len):
             for k_id in range(ki_beg, ki_end):
                 pss_ys = np.expand_dims(est_area[k_id, l_id], axis=0) if self.batch_size == self.BATCH_SIZE_NO else est_area[..., k_id, l_id];
-                pss_ys_ids_yes = abs(pss_ys)**2 > self.thres;
-                pss_ys_ids_not = abs(pss_ys)**2 <= self.thres;
+                pss_ys_sqr2 = np.expand_dims(est_area_sqr2[k_id, l_id], axis=0) if self.batch_size == self.BATCH_SIZE_NO else est_area_sqr2[..., k_id, l_id];
+                # pss_ys_ids_yes = abs(pss_ys)**2 > self.thres;
+                # pss_ys_ids_not = abs(pss_ys)**2 <= self.thres;
+                pss_ys_ids_yes = pss_ys_sqr2 > self.thres;
+                pss_ys_ids_not = pss_ys_sqr2 <= self.thres;
                 li = l_id - self.pls[0];
                 ki = k_id - self.pk;
                 # estimate the channel
                 if est_type == self.EST_TYPE_LS:
                     hi = pss_ys/self.pil_val;
-                    hi_var = np.tile(self.Ed/self.Ep + self.No/self.Ep, pss_ys.shape)
+                    hi_var = np.tile((self.Ed+self.No)/self.Ep/self.area_num, pss_ys.shape)
                 # zero values under the threshold
                 hi[pss_ys_ids_not] = 0
                 hi_var[pss_ys_ids_not] = eps

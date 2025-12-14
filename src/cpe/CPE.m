@@ -60,7 +60,7 @@ classdef CPE < handle
             self.Ed = Ed;
             self.No = No;
             self.rho = chi2inv(0.9999, 2*self.area_num)/(2*self.area_num);
-            self.thres = self.rho*(Ed + No);
+            self.thres = self. *(Ed + No);
         end
 
         %{

@@ -2,7 +2,8 @@ clear;
 clc;
 % this script is to calculate the threshold of the system
 % parameters
-pmax = 16; % the maximal path number
+pmax_beg = 6;
+pmax = 10; % the maximal path number
 SNR_d = 14;
 No = 10^(-SNR_d/10);
 powXd = 1;
@@ -13,19 +14,32 @@ pilot_num = 4;
 
 thres = chi2inv(pNo, 2*pilot_num)/2/pilot_num;
 disp("Not data + noise threshold")
+%% methods 1
+disp("----method1----")
+% disp("1 pilot case: Show the threshold when we can confirm it is a path!");
+% for p = pmax_beg:pmax
+%     SINR_p_linear = (chi2inv(pNo, 2)/chi2inv((1-pPath), 2)-1)*p*(powXd+No); % the SINR of pilot (pilot/(Xd + z))
+%     SINR_p = 10*log10(SINR_p_linear);
+%     powXp = SINR_p_linear*(powXd + No);
+%     SNR_p = 10*log10(powXp/No);
+%     fprintf("Path is %d: SNR_p is %.8f, SNR_p-SNR_d is %.8f\n", p, SNR_p, (SNR_p-SNR_d));
+% end
 
-disp("1 pilot case: Show the threshold when we can confirm it is a path!");
-for p = 1:pmax
-    SINR_p_linear = (chi2inv(pNo, 2)/chi2inv((1-pPath), 2)-1)*p; % the SINR of pilot (pilot/(Xd + z))
+disp(pilot_num + " pilot case: Show the threshold when we can confirm it is a path!");
+for p = pmax_beg:pmax
+    SINR_p_linear = (chi2inv(pNo, 2*pilot_num)/chi2inv((1-pPath)*(powXd+No), 2*pilot_num)-1)*p; % the SINR of pilot (pilot/(Xd + z))
     SINR_p = 10*log10(SINR_p_linear);
     powXp = SINR_p_linear*(powXd + No);
     SNR_p = 10*log10(powXp/No);
     fprintf("Path is %d: SNR_p is %.8f, SNR_p-SNR_d is %.8f\n", p, SNR_p, (SNR_p-SNR_d));
 end
 
+%% method 2
+disp("----method2----")
+
 disp(pilot_num + " pilot case: Show the threshold when we can confirm it is a path!");
-for p = 1:pmax
-    SINR_p_linear = (chi2inv(pNo, 2*pilot_num)/chi2inv((1-pPath), 2*pilot_num)-1)*p; % the SINR of pilot (pilot/(Xd + z))
+for p = pmax_beg:pmax
+    SINR_p_linear = (chi2inv(pNo, 2)/chi2inv((1-pPath), 2)-1)*p*(powXd+No)/pilot_num; % the SINR of pilot (pilot/(Xd + z))
     SINR_p = 10*log10(SINR_p_linear);
     powXp = SINR_p_linear*(powXd + No);
     SNR_p = 10*log10(powXp/No);

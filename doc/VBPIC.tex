@@ -246,6 +246,65 @@ where $x_p$ is the pilot symbol with energy $E_p$, $k_p = \lfloor (K-1)/2 \rfloo
   \label{fig:otfs-frame}
 \end{figure}
 
+\subsubsection{Inital Channel Estimation}
+In this section, we have two methods: the first, we average all channel estimation area together and do absolute square; the second, we do absolute square and average. We will introduce two thresholds individually.
+\begin{itemize}
+\item First
+\begin{align}
+Y_{CHE}[k,l] &= \frac{1}{N_b}\sum_{i=0}^{N_b-1} Y_{DD}[k,l+(l_\max+1)(i-1)]
+\end{align}
+where $k\in [0, K]$ and $l\in [0, l_\max]$ and the variance of $Y_{CHE}[k,l]$ is $\sigma_{CHE}^2=\frac{1+\sigma^2}{N_b}$
+\begin{align}
+| \eta[k,l] |^2 &= | Y_{CHE}[k,l] |^2 \\
+\frac{|\eta[k,l]|^2}{\sigma_{CHE}^2/2} &=  |\frac{real(Y_{CHE}[k,l])}{\sigma_{CHE}/\sqrt(2)}|^2 + |\frac{imag(Y_{CHE}[k,l])}{\sigma_{CHE}/\sqrt(2)}|^2
+\end{align}
+Therefore, $\frac{|\eta[k,l]|^2}{\sigma_{CHE}^2/2}$ is a chi-square distribution of freedom 2. We set the a threshold $\rho_0$ and its probability $p_0$ (assuming it is noise and data), i.e.,
+\begin{align}
+p(\frac{|\eta[k,l]|^2}{\sigma_{CHE}^2/2} \leq \rho_0) &= p_0 \\
+\rho_0 &= chi2inv(p_0, 2) \\
+\frac{|\eta[k,l]|^2}{\sigma_{CHE}^2/2} &\leq \rho_0 \\
+|\eta[k,l]|^2 &\leq \rho_0 \sigma_{CHE}^2/2 \\
+|\eta[k,l]|^2 &\leq \rho_0 \frac{1+\sigma^2}{2N_b}
+\end{align}
+If $|\eta[k,l]|^2 \geq \rho_0 \frac{1+\sigma^2}{2N_b}$, we assume that it is not noise and data at a probability of $1-p_0$.
+Then, we set another threshold $\rho_1$ and its probability $p_1$ (assuming it is a path where $\sigma_{CHE}^2=\frac{1+\sigma^2}{N_b}$), i.e.,
+\begin{align}
+p(|\eta[k,l]|^2 \geq \rho_1) &\geq p_1  \\
+p(|\eta[k,l]|^2 \leq \rho_1) &\leq 1-p_1  \\
+\rho_1 &= chi2inv(1-p_1, 2) \\
+\frac{|\eta[k,l]|^2}{(E_s/p + (1+\sigma^2)/N_b)/2} &\geq \rho_1 \\
+|\eta[k,l]|^2 &\geq \rho_1\frac{E_s/p + (1+\sigma^2)/N_b}{2}
+\end{align}
+To make sure that a path exist when it is not a noise
+\begin{align}
+\rho_0 \frac{1+\sigma^2}{2N_b} &= \rho_1\frac{E_s/p + (1+\sigma^2)/N_b}{2}  \\
+\frac{\rho_0}{\rho_1} \frac{1+\sigma^2}{N_b} &= E_s/p + (1+\sigma^2)/N_b  \\
+E_s/p &= (\frac{\rho_0}{\rho_1} -1) \frac{1+\sigma^2}{N_b}
+\end{align}
+
+\item Second
+\begin{align}
+|\eta[k,l]|^2 &= \sum_{i=0}^{N_b-1} |Y_{DD}[k,l+(l_\max+1)(i-1)]|^2 \\
+\frac{|\eta[k,l]|^2}{(1+\sigma^2)/2}&= \sum_{i=0}^{N_b-1} \frac{real(Y_{DD}[k,l+(l_\max+1)(i-1)])^2}{(1+\sigma^2)/2} + \frac{imag(Y_{DD}[k,l+(l_\max+1)(i-1)])^2}{(1+\sigma^2)/2}
+\end{align}
+Therefore, $\frac{|\eta[k,l]|^2}{(1+\sigma^2)/2}$ is a chi-square distribution of freedom $2N_b$. We set the a threshold $\rho_0$ and its probability $p_0$ (assuming it is noise and data), i.e.,
+\begin{align}
+p(\frac{|\eta[k,l]|^2}{(1+\sigma^2)/2} \leq \rho_0) &= p_0 \\
+\rho_0 &= chi2inv(p_0, 2N_b) \\
+|\eta[k,l]|^2 &\leq \rho_0 (1+\sigma^2)/2
+\end{align}
+Similarly,
+\begin{align}
+\rho_1 &= chi2inv(1-p_1, 2N_b) \\
+|\eta[k,l]|^2 &\geq \rho_1\frac{E_s/p + 1 +\sigma^2}{2}
+\end{align}
+Therefore,
+\[
+E_s/p = (\frac{\rho_0}{\rho_1} -1) (1+\sigma^2)
+\]
+
+\end{itemize}
+
 
 \section{Variational Bayes in QJCHESD}
 \subsection{OTFS Channel Estimation using VB}

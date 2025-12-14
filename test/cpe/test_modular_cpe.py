@@ -3,11 +3,9 @@ get_ipython().magic('reset -f')
 get_ipython().magic('clear')
 
 import numpy as np
-from whatshow_phy_mod_otfs import OTFS, OTFSResGrid, OTFSDetector
-from OTFSConfig import OTFSConfig
-from CPE import CPE
-from JPICNet import JPICNet
-from Utils.utils import realH2Hfull
+from textremo_phy_mod_otfs import OTFS, OTFSResGrid, OTFSDetector
+from src import *
+from util import Utils
 
 print("------------------------------------------------------------------------")
 print("CPE\n")
@@ -21,7 +19,8 @@ L = 16;     # subcarrier number
 QAM = 4;
 constel = [-0.7071-0.7071j, -0.7071+0.7071j, 0.7071-0.7071j, 0.7071+0.7071j];
 SNR_d = 14;
-SNR_p = 37;
+SNR_p = 40.20889808;
+# SNR_p = 37
 No = 10**(-SNR_d/10);
 Es_d = 1;
 Es_p = 10**((SNR_p - SNR_d)/10);
@@ -61,7 +60,7 @@ otfs.setChannel(p, lmax, kmax);
 otfs.passChannel(0);
 his, lis, kis = otfs.getCSI();
 H_DD = otfs.getChannel();
-his_full = realH2Hfull(kmax, lmax, his, lis, kis);
+his_full = Utils.realH2Hfull(kmax, lmax, his, lis, kis);
 
 # Rx
 rg_rx = otfs.demodulate();
@@ -71,7 +70,7 @@ yDD = np.reshape(Y_DD, [K*L]);
 # estimate the paths
 # estimate the paths - positve 
 his_est, his_est_var, lis_est, kis_est = cpe.estPaths(Y_DD);
-his_full_est = realH2Hfull(kmax, lmax, his_est, lis_est, kis_est);
+his_full_est = Utils.realH2Hfull(kmax, lmax, his_est, lis_est, kis_est);
 his_full_diff = abs(his_full_est - his_full);
 # estimate the paths - all
 his_full_est1, his_full_est1_var, his_mask =  cpe.estPaths(Y_DD, is_all=True);
@@ -79,6 +78,8 @@ lis_full_est1 = np.kron(np.arange(lmax+1), np.ones(2*kmax + 1)).astype(int);  # 
 kis_full_est1 = np.tile(np.arange(-kmax, kmax+1), lmax+1);     
 his_full_diff1 = abs(his_full_est1 - his_full_est);
 
+# less means less than threshold (actually there is a path)
+# greater means greater than the thresold (actually there is a path)
 print("- unbatched: CPE threshold (power): %f"%cpe.thres)
 print("  - CHE result compare");
 print("    - CHE check (less):")
@@ -87,7 +88,7 @@ for li in range(lmax + 1):
     for ki in range(-kmax, kmax+1):
         his_shift = li*(2*kmax+1) + kmax + ki;
         y_pow = abs(his_full_est[his_shift]*cpe.pil_val)**2;
-        if his_full_diff[his_shift] > 1e-13 and y_pow <= cpe.thres:
+        if his_full_diff[his_shift] > 1e-13 and abs(his_full_est[his_shift] )==0:
             diff_num_less += 1
             print(f"      - [{his_shift:2d}], origin: {his_full[his_shift]:+.4f}, est: {his_full_est[his_shift]:+.4f}")
 print("    - CHE check (greater):")
@@ -96,7 +97,7 @@ for li in range(lmax + 1):
     for ki in range(-kmax, kmax+1):
         his_shift = li*(2*kmax+1) + kmax + ki;
         y_pow = abs(his_full_est[his_shift]*cpe.pil_val)**2;
-        if his_full_diff[his_shift] > 1e-13 and y_pow > cpe.thres:
+        if his_full_diff[his_shift] > 1e-13 and abs(his_full_est[his_shift] )>0:
             diff_num_grea += 1
             print(f"      - [{his_shift:2d}], origin: {his_full[his_shift]:+.4f}, est: {his_full_est[his_shift]:+.4f}, diff: {his_full_diff[his_shift]: .4f}")
             
@@ -170,7 +171,7 @@ otfs.setChannel(p, lmax, kmax);
 otfs.passChannel(0);
 his, lis, kis = otfs.getCSI();
 H_DD = otfs.getChannel();
-his_full = realH2Hfull(kmax, lmax, his, lis, kis, batch_size=batch_size);
+his_full = Utils.realH2Hfull(kmax, lmax, his, lis, kis, batch_size=batch_size);
 
 # Rx
 rg_rx = otfs.demodulate();
@@ -180,7 +181,7 @@ yDD = np.reshape(Y_DD, [batch_size, K*L]);
 # estimate the paths
 # estimate the paths - positve 
 his_est, his_est_var, lis_est, kis_est = cpe.estPaths(Y_DD);
-his_full_est = realH2Hfull(kmax, lmax, his_est, lis_est, kis_est, batch_size=batch_size);
+his_full_est = Utils.realH2Hfull(kmax, lmax, his_est, lis_est, kis_est, batch_size=batch_size);
 his_full_diff = abs(his_full_est - his_full);
 # estimate the paths - all
 his_full_est1, his_full_est1_var, his_mask =  cpe.estPaths(Y_DD, is_all=True);
@@ -199,7 +200,7 @@ for bid in range(batch_size):
         for ki in range(-kmax, kmax+1):
             his_shift = li*(2*kmax+1) + kmax + ki;
             y_pow = abs(his_full_est[bid, his_shift]*cpe.pil_val)**2;
-            if his_full_diff[bid, his_shift] > 1e-13 and y_pow <= cpe.thres:
+            if his_full_diff[bid, his_shift] > 1e-13 and abs(his_full_est[bid, his_shift] )==0:
                 diff_num_less += 1
                 print(f"      - [{bid:2d}, {his_shift:2d}], origin: {his_full[bid, his_shift]:+.4f}, est: {his_full_est[bid, his_shift]:+.4f}")
 print("    - CHE check (greater):")
@@ -209,7 +210,7 @@ for bid in range(batch_size):
         for ki in range(-kmax, kmax+1):
             his_shift = li*(2*kmax+1) + kmax + ki;
             y_pow = abs(his_full_est[bid, his_shift]*cpe.pil_val)**2;
-            if his_full_diff[bid, his_shift] > 1e-13 and y_pow > cpe.thres:
+            if his_full_diff[bid, his_shift] > 1e-13 and abs(his_full_est[bid, his_shift] )>0:
                 diff_num_grea += 1
                 print(f"      - [{bid:2d}, {his_shift:2d}], origin: {his_full[bid, his_shift]:+.4f}, est: {his_full_est[bid, his_shift]:+.4f}, diff: {his_full_diff[bid, his_shift]: .4f}")
                 
@@ -246,7 +247,7 @@ No = 10**(-SNR_d/10);
 Es_d = 1;
 Es_p = 10**((SNR_p - SNR_d)/10);
 # batch
-batch_size = 10;
+batch_size = 64;
 # channel configuration
 p = 6;
 lmax = 3;
@@ -283,7 +284,7 @@ otfs.setChannel(p, lmax, kmax);
 otfs.passChannel(0);
 his, lis, kis = otfs.getCSI();
 H_DD = otfs.getChannel();
-his_full = realH2Hfull(kmax, lmax, his, lis, kis, batch_size=batch_size);
+his_full = Utils.realH2Hfull(kmax, lmax, his, lis, kis, batch_size=batch_size);
 
 # Rx
 rg_rx = otfs.demodulate();
@@ -293,7 +294,7 @@ yDD = np.reshape(Y_DD, [batch_size, K*L]);
 # estimate the paths
 # estimate the paths - positve 
 his_est, his_est_var, lis_est, kis_est = cpe.estPaths(Y_DD);
-his_full_est = realH2Hfull(kmax, lmax, his_est, lis_est, kis_est, batch_size=batch_size);
+his_full_est = Utils.realH2Hfull(kmax, lmax, his_est, lis_est, kis_est, batch_size=batch_size);
 his_full_diff = abs(his_full_est - his_full);
 # estimate the paths - all
 his_full_est1, his_full_est1_var, his_mask =  cpe.estPaths(Y_DD, is_all=True);
@@ -312,7 +313,7 @@ for bid in range(batch_size):
         for ki in range(-kmax, kmax+1):
             his_shift = li*(2*kmax+1) + kmax + ki;
             y_pow = abs(his_full_est[bid, his_shift]*cpe.pil_val)**2;
-            if his_full_diff[bid, his_shift] > 1e-13 and y_pow <= cpe.thres:
+            if his_full_diff[bid, his_shift] > 1e-13 and abs(his_full_est[bid, his_shift] )==0:
                 diff_num_less += 1
                 print(f"      - [{bid:2d}, {his_shift:2d}], origin: {his_full[bid, his_shift]:+.4f}, est: {his_full_est[bid, his_shift]:+.4f}")
 print("    - CHE check (greater):")
@@ -322,7 +323,7 @@ for bid in range(batch_size):
         for ki in range(-kmax, kmax+1):
             his_shift = li*(2*kmax+1) + kmax + ki;
             y_pow = abs(his_full_est[bid, his_shift]*cpe.pil_val)**2;
-            if his_full_diff[bid, his_shift] > 1e-13 and y_pow > cpe.thres:
+            if his_full_diff[bid, his_shift] > 1e-13 and abs(his_full_est[bid, his_shift] )>0:
                 diff_num_grea += 1
                 print(f"      - [{bid:2d}, {his_shift:2d}], origin: {his_full[bid, his_shift]:+.4f}, est: {his_full_est[bid, his_shift]:+.4f}, diff: {his_full_diff[bid, his_shift]: .4f}")
                 
