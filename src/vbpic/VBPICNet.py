@@ -135,7 +135,7 @@ class VBPICNet(VB, nn.Module):
                         li = self.lis[tap_id].item()
                         ki = self.kis[tap_id].item()
                         # delay
-                        piMati = circshift(piMat, li, 1); 
+                        piMati = circshift(piMat, li, 0); 
                         # Doppler
                         timeSeq = circshift(arange(-li, self.sig_len-li), -li)
                         deltaMat_diag = exp(2j*pi*ki/(self.sig_len)*timeSeq);
@@ -152,7 +152,7 @@ class VBPICNet(VB, nn.Module):
                 TtTs = zeros(self.pmax, self.pmax, self.sig_len, self.sig_len, dtype=self.ctype)
                 for i in range(self.pmax):
                     for j in range(self.pmax):
-                        TtTs[i, j, ...] = Ts[i] @ Ts[j] 
+                        TtTs[i, j, ...] = conj(Ts[i].transpose(-1,-2)) @ Ts[j] 
                 self.register_buffer("TtTs", TtTs)
                 
     '''
@@ -364,7 +364,8 @@ class VBPICNet(VB, nn.Module):
             HtH_r = self.toReal(HtH)
             H_r = self.toReal(H)
             # GNN
-            # GNN - genFeatures
+            # GNN - generate features
+            x_feat_n, x_feat_e = self.genFeatures(y_r, H_r, HtH_r, No, x_bso_r, v_bso_r)
             
             
             # BSE
@@ -415,14 +416,16 @@ class VBPICNet(VB, nn.Module):
             for i in range(self.pmax):
                 hmi = hm[..., i]
                 if torch.any(hmi):
-                    hi = conj(h[..., i]).reshape(-1, 1, 1)
+                    hi = h[..., i].reshape(-1, 1, 1)
                     H = H + hi.reshape(-1, 1, 1) * self.Ts[i]
                     for j in range(self.pmax):
                         hj = h[..., j].reshape(-1, 1, 1)
                         hvj = hv[..., j].reshape(-1, 1, 1)
                         hmj = hm[..., j]
                         if torch.any(hmj):
-                            hij = hi*hj + hvj if i==j else hi*hj
+                            hij = hi.conj()*hj
+                            if i==j:
+                                hij = hij + hvj
                             HtH = HtH + self.TtTs[i, j]*hij
         return H, HtH
     
@@ -461,12 +464,27 @@ class VBPICNet(VB, nn.Module):
     generate features (y=H*x+No or y=Phi*h+No)
     @in0:       y, [(batch_size), KL, 1]
     @in1:       H or Phi, [(batch_size), KL*KL] or [(batch_size), KL*pmax]
-    @in2:       the noise power, scalar
-    @in3:       the estimated mean, [(batch_size), KL, 1] or [(batch_size), pmax, 1]
-    @in4:       (1) the estimated variance, [(batch_size), KL, 1] or [(batch_size), pmax, 1]
+    @in2:       HtH or PtP, [(batch_size), KL*KL] or [(batch_size), KL*pmax]
+    @in3:       the noise power, [B, 1, 1]
+    @in4:       the estimated mean, [(batch_size), KL, 1] or [(batch_size), pmax, 1]
+    @in5:       (1) the estimated variance, [(batch_size), KL, 1] or [(batch_size), pmax, 1]
                 (2) the estimated covariance, [(batch_size), KL, KL] or [(batch_size), pmax, pmax]
     '''
-    def genFeatures(self, in0, in1, in2, in3, in4):
-        # input check
-        pass
+    def genFeatures(self, in0, in1, in2, in3, in4, in5):
+        # node number
+        n_num = in1.shape[-2]
+        # node
+        yTh = (in0.transpose(-1, -2) @ in1).transpose(-1, -2)
+        hth_diag = usqz(diagonal(in2, dim1=-2, dim2=-1), -1)
+        prec = repmat(1/in3, [1, n_num, 1])
+        feat_n = cat([yTh, -hth_diag, prec], -1)
         
+        # edge_mask
+        mask = repmat(~eye(n_num, dtype=bool, device=self.dev), [self.B, 1, 1])
+        
+        # edge
+        feat_e = -in2[mask].reshape(self.B, n_num, n_num-1)
+        
+        
+        
+        return feat_n, feat_e

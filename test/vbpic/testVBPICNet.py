@@ -19,7 +19,7 @@ dev = torch.device('cpu')
 #dev = torch.device('cuda', index=0) if torch.cuda.is_available() else torch.device('cpu')
 
 
-B = 5
+B = 1
 genconfig("OTFS", "SP_REP_DELAY", "toy")
 Es_d = 1
 Es_p = 10**((SNR_p - SNR_d)/10)
@@ -45,7 +45,8 @@ OTFS frame
 xDD_syms_ids = randi(3,size=[B, data_len,1])
 xDD_syms = constel[xDD_syms_ids]
 X_DD_syms = np.reshape(xDD_syms, [B, N, M])
-X_DD = X_DD_syms + Xp
+#X_DD = X_DD_syms + Xp
+X_DD = Xp
 xDD = np.reshape(X_DD, [B, N*M, 1])
 '''
 OTFS Tx -> Rx
@@ -75,7 +76,6 @@ his_full = Utils.realH2Hfull(kmax, lmax, his, lis, kis, batch_size=B);
 # his_est, his_est_var, lis_est, kis_est = cpe.estPaths(Y_DD);
 
 
-
 '''
 VBPICNet
 '''
@@ -88,10 +88,10 @@ vbpicnn.setDataLoc(dataLocs)
 
 vbpicnn.detect(Y_DD, h, hv, hm, No)
 
-vbpicnn = None
-del vbpicnn
-gc.collect()
-torch.cuda.empty_cache()
+# vbpicnn = None
+# del vbpicnn
+# gc.collect()
+# torch.cuda.empty_cache()
 
 # Ts = vbpicnn.Ts.numpy()
 
