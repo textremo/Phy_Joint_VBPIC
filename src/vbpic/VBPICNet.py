@@ -67,11 +67,16 @@ class VBPICNet(VB, nn.Module):
     '''
     def setConstel(self, constel):
         constel = sqz(arr(constel))
-        constel = unique(real(constel))
         self.register_buffer("constel", constel)
         self.register_buffer("constel_B_row", constel)
         self.register_buffer('constel_len', arr(constel.shape[0]))
         self.register_buffer('Ed', torch.sum(constel.abs()**2)/self.constel_len)    # constellation average power
+        #real
+        constel_r = unique(real(constel))
+        self.register_buffer("constel_r", constel_r)
+        self.register_buffer("constel_B_row_r", constel_r)
+        self.register_buffer('constel_r_len', arr(constel_r.shape[0]))
+        self.register_buffer('Ed_r', torch.sum(constel_r.abs()**2)/self.constel_r_len)    # constellation average power
     
     '''
     set the data location
@@ -370,7 +375,7 @@ class VBPICNet(VB, nn.Module):
             
             
             # BSE
-            #x_bse_r, v_bse_r = self.bse(x_bso_r, v_bso_r)
+            x_bse, v_bse = self.bse(x_bso, v_bso)
             
             print()
             
