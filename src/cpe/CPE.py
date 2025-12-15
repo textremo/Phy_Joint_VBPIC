@@ -125,7 +125,7 @@ class CPE(object):
                     hi_var = np.tile((self.Ed+self.No)/self.Ep/self.area_num, pss_ys.shape)
                 # zero values under the threshold
                 hi[pss_ys_ids_not] = 0
-                hi_var[pss_ys_ids_not] = eps
+                hi_var[pss_ys_ids_not] = 1e-13
                 hi_mask = pss_ys_ids_yes;
                 # at least we find one path
                 if is_all or np.sum(pss_ys_ids_yes, axis=None) > 0:

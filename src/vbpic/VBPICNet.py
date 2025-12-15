@@ -306,7 +306,7 @@ class VBPICNet(VB, nn.Module):
     @min_var:       the minimal variance 1e-10 by default
     @sym_map:       false by default. If true, the output will be mapped to the constellation
     '''
-    def detect(self, Y, h, hv, hm, No, *, min_var=1e-10, sym_map=False):
+    def detect(self, Y, h, hv, hm, No, *, min_var=1e-13, sym_map=False):
         Y = arr(Y).to(self.dev)
         y = reshape(Y, [self.B, self.sig_len, 1])
         h = arr(h).to(self.dev)
@@ -316,6 +316,7 @@ class VBPICNet(VB, nn.Module):
         Xp = repmat(self.refSig, [self.B, 1, 1])
         xp = reshape(Xp, [self.B, self.sig_len, 1])
         min_var = arr(min_var, dtype=self.ctype).to(self.dev)
+        min_var_r = arr(min_var/2, dtype=self.ftype).to(self.dev)
         
         if self.modu in self.MODUS_OFDM:
             if Y.shape[0]!= self.B or Y.shape[-2] != self.M or Y.shape[-1] != self.N:
@@ -355,12 +356,12 @@ class VBPICNet(VB, nn.Module):
             H, HtH = self.h2H(h, hv, hm)
             Ht = H.transpose(-1, -2).conj()
             # BSO
-            V_bso = inv(alpha*HtH + torch.diag_embed(1/d.squeeze(-1)))
+            V_bso = inv(alpha*HtH + torch.diag_embed(1/sqz(d, -1)))
             x_bso = V_bso @ (alpha * (Ht @ y - HtH @ xp) + c/d)
             v_bso = usqz(diagonal(V_bso, dim1=-2, dim2=-1), -1)
             # to real
             x_bso_r = self.toReal(x_bso)
-            v_bso_r = self.toReal(v_bso)
+            v_bso_r = self.toReal(v_bso).clamp(min_var_r)
             HtH_r = self.toReal(HtH)
             H_r = self.toReal(H)
             # GNN
@@ -468,7 +469,6 @@ class VBPICNet(VB, nn.Module):
     @in3:       the noise power, [B, 1, 1]
     @in4:       the estimated mean, [(batch_size), KL, 1] or [(batch_size), pmax, 1]
     @in5:       (1) the estimated variance, [(batch_size), KL, 1] or [(batch_size), pmax, 1]
-                (2) the estimated covariance, [(batch_size), KL, KL] or [(batch_size), pmax, pmax]
     '''
     def genFeatures(self, in0, in1, in2, in3, in4, in5):
         # node number
@@ -477,7 +477,7 @@ class VBPICNet(VB, nn.Module):
         yTh = (in0.transpose(-1, -2) @ in1).transpose(-1, -2)
         hth_diag = usqz(diagonal(in2, dim1=-2, dim2=-1), -1)
         prec = repmat(1/in3, [1, n_num, 1])
-        feat_n = cat([yTh, -hth_diag, prec], -1)
+        feat_n = cat([yTh, -hth_diag, prec, in4, 1/in5], -1)
         
         # edge_mask
         mask = repmat(~eye(n_num, dtype=bool, device=self.dev), [self.B, 1, 1])

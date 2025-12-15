@@ -8,10 +8,12 @@ except:
     
 class TelecommGNN(nn.Module):
     '''
-    @iter_num:  the iteration number
-    @nf_num:    node feature number
-    @neuron_num: the neuron
+    @iter_num:      the iteration number
+    @feat_n_num:    node feature number
+    @nn_num:        the neuron number
     '''
-    def __init__(self, iter_num, neuron_num=64):
+    def __init__(self, iter_num, feat_n_numm, nn_num=64):
         super().__init__()
+        self.iter_num = iter_num
+        self.nn_num = nn_num
         

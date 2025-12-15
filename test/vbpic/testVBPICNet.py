@@ -19,7 +19,7 @@ dev = torch.device('cpu')
 #dev = torch.device('cuda', index=0) if torch.cuda.is_available() else torch.device('cpu')
 
 
-B = 1
+B = 2
 genconfig("OTFS", "SP_REP_DELAY", "toy")
 Es_d = 1
 Es_p = 10**((SNR_p - SNR_d)/10)
@@ -88,10 +88,10 @@ vbpicnn.setDataLoc(dataLocs)
 
 vbpicnn.detect(Y_DD, h, hv, hm, No)
 
-# vbpicnn = None
-# del vbpicnn
-# gc.collect()
-# torch.cuda.empty_cache()
+vbpicnn = None
+del vbpicnn
+gc.collect()
+torch.cuda.empty_cache()
 
 # Ts = vbpicnn.Ts.numpy()
 
