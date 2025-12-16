@@ -80,7 +80,7 @@ his_full = Utils.realH2Hfull(kmax, lmax, his, lis, kis, batch_size=B);
 VBPICNet
 '''
 vbpicnn = VBPICNet(Modu.MODU_OTFS_SP_REP_DELAY, Modu.FT_CP, Modu.PUL_RECTA, N, M, B=B, dev=dev)
-vbpicnn.setCSI(kmax, lmax)
+vbpicnn.setCSI(1/p, p, kmax, lmax)
 vbpicnn.setRef(Xp[0])
 vbpicnn.setConstel(constel)
 vbpicnn.to(dev)

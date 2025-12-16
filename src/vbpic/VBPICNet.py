@@ -343,39 +343,47 @@ class VBPICNet(VB, nn.Module):
         else:
             raise Exception("The noise power is not in the correct shape!!!")
         # to real
+        hm_r = cat([hm, hm], -2)
         Y_r = self.toReal(Y)
         y_r = self.toReal(y)
+        xp_r = self.toReal(xp)
         
         # the estimated noise precision
-        alpha = 1/No
+        alpha = 1/(No/2)
         # the estimated channel mean and variance (the no-path location is force to small variance)
-        a = zeros(self.B, self.pmax, 1, dtype=self.ctype, device=self.dev)
-        b = ones(self.B, self.pmax, 1, dtype=self.ctype, device=self.dev)
-        b[hm] = min_var
+        a = zeros(self.B, 2*self.pmax, 1, dtype=self.ftype, device=self.dev)
+        b = self.Eh/2*ones(self.B, 2*self.pmax, 1, dtype=self.ftype, device=self.dev)
+        b[hm_r] = min_var
         # the estimated symbol mean and variance
-        c = zeros(self.B, self.sig_len, 1, dtype=self.ctype, device=self.dev)
-        d = ones(self.B, self.sig_len, 1, dtype=self.ctype, device=self.dev)
+        c = zeros(self.B, 2*self.sig_len, 1, dtype=self.ftype, device=self.dev)
+        d = self.Ed_r*ones(self.B, 2*self.sig_len, 1, dtype=self.ftype, device=self.dev)
         
         # VB structure
         for t in range(self.iter_num):
             H, HtH = self.h2H(h, hv, hm)
             Ht = H.transpose(-1, -2).conj()
-            # BSO
-            V_bso = inv(alpha*HtH + torch.diag_embed(1/sqz(d, -1)))
-            x_bso = V_bso @ (alpha * (Ht @ y - HtH @ xp) + c/d)
-            v_bso = usqz(diagonal(V_bso, dim1=-2, dim2=-1), -1)
             # to real
-            x_bso_r = self.toReal(x_bso)
-            v_bso_r = self.toReal(v_bso).clamp(min_var_r)
             HtH_r = self.toReal(HtH)
+            Ht_r = self.toReal(Ht)
             H_r = self.toReal(H)
+            
+            # BSO
+            V_bso = inv(alpha*HtH_r + torch.diag_embed(1/sqz(d, -1)))
+            x_bso = V_bso @ (alpha * (Ht_r @ y_r - HtH_r @ xp_r) + c/d)
+            v_bso = usqz(diagonal(V_bso, dim1=-2, dim2=-1), -1)
+            v_bso = v_bso.clamp(min_var_r)
+            # BSE
+            #x_bse, v_bse = self.bse(x_bso, v_bso)
+            # DSC
+            x_dsc = x_bso
+            v_dsc = v_bso
+            
             # GNN
             # GNN - generate features
-            x_feat_n, x_feat_e = self.genFeatures(y_r, H_r, HtH_r, No, x_bso_r, v_bso_r)
+            x_feat_n, x_feat_e = self.genFeatures(y_r, H_r, HtH_r, No, x_dsc, v_dsc)
+            #
             
             
-            # BSE
-            x_bse, v_bse = self.bse(x_bso, v_bso)
             
             print()
             
@@ -386,7 +394,7 @@ class VBPICNet(VB, nn.Module):
     '''
     def bse(self, x, v, *, min_var=5e-11):
         # BSE - Estimate P(x|y) using Gaussian distribution
-        pxyPdfExpPower = -1/(2*v)*torch.square(x - self.constel_B_row)
+        pxyPdfExpPower = -1/(2*v)*torch.square(x - self.constel_B_row_r)
         # BSE - make every row the max power is 0
         #     - max only consider the real part
         pxypdfExpNormPower = pxyPdfExpPower - pxyPdfExpPower.max(-1, keepdim=True).values
@@ -396,8 +404,8 @@ class VBPICNet(VB, nn.Module):
         # BSE - PDF normalisation
         pxyPdfNorm = pxyPdfCoeff*pxyPdf
         # BSE - calculate the mean and variance
-        x_bse_d = (pxyPdfNorm*self.constel_B_row).sum(-1, keepdim=True)
-        v_bse_d = (torch.square(x_bse_d - self.constel_B_row)*pxyPdfNorm).sum(-1, keepdim=True)
+        x_bse_d = (pxyPdfNorm*self.constel_B_row_r).sum(-1, keepdim=True)
+        v_bse_d = (torch.square(x_bse_d - self.constel_B_row_r)*pxyPdfNorm).sum(-1, keepdim=True)
         v_bse_d = v_bse_d.clamp(min_var)
         return x_bse_d, v_bse_d
             
@@ -472,24 +480,21 @@ class VBPICNet(VB, nn.Module):
     @in1:       H or Phi, [(batch_size), KL*KL] or [(batch_size), KL*pmax]
     @in2:       HtH or PtP, [(batch_size), KL*KL] or [(batch_size), KL*pmax]
     @in3:       the noise power, [B, 1, 1]
-    @in4:       the estimated mean, [(batch_size), KL, 1] or [(batch_size), pmax, 1]
-    @in5:       (1) the estimated variance, [(batch_size), KL, 1] or [(batch_size), pmax, 1]
     '''
-    def genFeatures(self, in0, in1, in2, in3, in4, in5):
+    def genFeatures(self, in0, in1, in2, in3):
         # node number
         n_num = in1.shape[-2]
         # node
         yTh = (in0.transpose(-1, -2) @ in1).transpose(-1, -2)
         hth_diag = usqz(diagonal(in2, dim1=-2, dim2=-1), -1)
         prec = repmat(1/in3, [1, n_num, 1])
-        feat_n = cat([yTh, -hth_diag, prec, in4, 1/in5], -1)
+        feat_n = cat([yTh, -hth_diag, prec], -1)
         
         # edge_mask
         mask = repmat(~eye(n_num, dtype=bool, device=self.dev), [self.B, 1, 1])
         
         # edge
-        feat_e = -in2[mask].reshape(self.B, n_num, n_num-1)
+        feat_e = cat([-in2[mask].view(self.B, n_num*(n_num-1), 1), repmat(1/in3, [1, n_num*(n_num-1), 1])], -1)
         
         
-        
-        return feat_n, feat_e
+        return feat_n, feat_e, resid
