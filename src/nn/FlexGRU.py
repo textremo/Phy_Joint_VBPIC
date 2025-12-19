@@ -2,11 +2,12 @@ import torch
 import torch.nn as nn
 
 class FlexGRU(nn.Module):
-    ACT_RELU = 0;
-    ACT_LEAKYRELU = 1;
-    ACT_ELU = 2;
-    ACT_GELU = 3;
-    ACTs = [ACT_RELU, ACT_LEAKYRELU, ACT_ELU, ACT_GELU];
+    ACT_TANH = -1
+    ACT_RELU = 0
+    ACT_LEAKYRELU = 1
+    ACT_ELU = 2
+    ACT_GELU = 3
+    ACTs = [ACT_TANH, ACT_RELU, ACT_LEAKYRELU, ACT_ELU, ACT_GELU];
     
     '''
     constructor
@@ -33,6 +34,8 @@ class FlexGRU(nn.Module):
     def __act__(self, actType):
         if actType not in self.ACTs:
             raise Exception("The activation function is not supported!!!")
+        elif actType == self.ACT_TANH:
+            return torch.tanh
         elif actType == self.ACT_RELU:
             return nn.ReLU()
         elif actType == self.ACT_LEAKYRELU:

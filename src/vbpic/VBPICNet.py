@@ -17,10 +17,14 @@ from textremo_toolbox import *
 eps = torch.finfo().eps
 pi = torch.pi
 
+sm = nn.Softmax(dim=-1)
+
 try:
     from ..vb.VB import VB
+    from ..nn.GNN import GNN
 except:
     from .VB import VB
+    from .GNN import GNN
 
 class VBPICNet(VB, nn.Module):
     NN_TYPE_MEANVARI = 1;       # use mean and variance as extra features
@@ -61,6 +65,7 @@ class VBPICNet(VB, nn.Module):
         VB.__init__(self, modu, frame, pul, nTimeslot, nSubcarr, B=B)
         # dataLoc
         self.register_buffer('dataLocs', ones(B, self.sig_len, self.sig_len))
+        
         
     '''
     set constel
@@ -103,7 +108,7 @@ class VBPICNet(VB, nn.Module):
                 kmax = args[-2]
                 lmax = args[-1]
                 eyeL = eye(self.L, dtype=self.ctype)
-                
+                eyeK =  eye(self.K, dtype=self.ctype)
                 self.register_buffer('kmax',     arr(kmax))
                 self.register_buffer('lmax',     arr(lmax))
                 if len(args) >= 3:
@@ -131,7 +136,7 @@ class VBPICNet(VB, nn.Module):
                     pass
                 if self.pul == self.PUL_RECTA:
                     # tmp variables
-                    dftmat = fft(eye(self.K))*sqrt(arr(1/self.K))   # DFT matrix
+                    dftmat = fft(eyeK)*sqrt(arr(1/self.K))   # DFT matrix
                     idftmat = conj(dftmat)                          # IDFT matrix
                     piMat = eye(self.sig_len, dtype=self.ctype)     # permutation matrix (from the delay) -> pi
                     # the T to register [pmax, B, KL, KL]
@@ -159,6 +164,28 @@ class VBPICNet(VB, nn.Module):
                     for j in range(self.pmax):
                         TtTs[i, j, ...] = conj(Ts[i].transpose(-1,-2)) @ Ts[j] 
                 self.register_buffer("TtTs", TtTs)
+                # Psi
+                Psis = zeros(self.pmax, self.sig_len, self.sig_len, dtype=self.ftype)
+                for i in range(self.pmax):
+                    li = self.lis[i].item()
+                    ki = self.kis[i].item()
+                    # delay
+                    eyeDel = circshift(real(eyeL), li, 0)
+                    # Doppler
+                    eyeDop = circshift(real(eyeK), ki, 0)
+                    Psis[i] = kron(eyeDop, eyeDel)
+                self.register_buffer("Psis", Psis)
+                    
+                # for i in range(self.pmax):
+                #     li = self.lis[i].item()
+                #     ki = self.kis[i].item()
+                #     T = Ts[i].numpy()
+                #     Psi = Psis[i].numpy()
+                #     res = torch.max(Psis[i] - abs(Ts[i]))
+                #     print(res)
+                # print()
+                    
+                
                 
     '''
     set the reference signal
@@ -187,8 +214,12 @@ class VBPICNet(VB, nn.Module):
         self.register_buffer('pilCheRng_klen', self.pilCheRng[1] - self.pilCheRng[0] + 1)
         self.register_buffer('pilCheRng_len', self.pilCheRng_klen*(self.pilCheRng[3] - self.pilCheRng[2] + 1))
     
-    def __del__(self):
-        print()
+    '''
+    set NN
+    '''
+    def setNN(self):
+        self.gnn_che = GNN(2, 2*self.pmax,     3, self.constel_r, ntype=GNN.NTYPE_CHE)
+        self.gnn_det = GNN(2, 2*self.sig_len,  3, self.constel_r, ntype=GNN.NTYPE_DET)
     
     '''
     refSig to Phi
@@ -310,8 +341,10 @@ class VBPICNet(VB, nn.Module):
     <opt>
     @min_var:       the minimal variance 1e-10 by default
     @sym_map:       false by default. If true, the output will be mapped to the constellation
+    @H:             the channel [(batch_size), KL, KL]
+    @x:             the symbol [(batch_size), KL, 1]
     '''
-    def detect(self, Y, h, hv, hm, No, *, min_var=1e-13, sym_map=False):
+    def forward(self, Y, h, hv, hm, No, *, min_var=1e-13, sym_map=False, H=None, x=None):
         Y = arr(Y).to(self.dev)
         y = reshape(Y, [self.B, self.sig_len, 1])
         h = arr(h).to(self.dev)
@@ -321,7 +354,18 @@ class VBPICNet(VB, nn.Module):
         Xp = repmat(self.refSig, [self.B, 1, 1])
         xp = reshape(Xp, [self.B, self.sig_len, 1])
         min_var = arr(min_var, dtype=self.ctype).to(self.dev)
-        min_var_r = arr(min_var/2, dtype=self.ftype).to(self.dev)
+        min_var_r = real(arr(min_var/2)).to(self.dev)
+        
+        
+        if H is None:
+            che = True
+        else:
+            che = False
+            H = arr(H).to(self.dev)
+        if x is None:
+            det = True
+        else:
+            det = False
         
         if self.modu in self.MODUS_OFDM:
             if Y.shape[0]!= self.B or Y.shape[-2] != self.M or Y.shape[-1] != self.N:
@@ -353,61 +397,91 @@ class VBPICNet(VB, nn.Module):
         # the estimated channel mean and variance (the no-path location is force to small variance)
         a = zeros(self.B, 2*self.pmax, 1, dtype=self.ftype, device=self.dev)
         b = self.Eh/2*ones(self.B, 2*self.pmax, 1, dtype=self.ftype, device=self.dev)
-        b[hm_r] = min_var
+        #a = self.toReal(h)
+        #b = torch.max(hv)/2*ones(self.B, 2*self.pmax, 1, dtype=self.ftype, device=self.dev)
+        
+        b[~hm_r] = min_var_r
         # the estimated symbol mean and variance
         c = zeros(self.B, 2*self.sig_len, 1, dtype=self.ftype, device=self.dev)
         d = self.Ed_r*ones(self.B, 2*self.sig_len, 1, dtype=self.ftype, device=self.dev)
         
-        # VB structure
-        for t in range(self.iter_num):
-            H, HtH = self.h2H(h, hv, hm)
+        # CSI
+        if not che:
             Ht = H.transpose(-1, -2).conj()
-            # to real
+            HtH = Ht @ H
             HtH_r = self.toReal(HtH)
             Ht_r = self.toReal(Ht)
             H_r = self.toReal(H)
+        
+        
+        # VB structure
+        for t in range(self.iter_num):
+            if che:
+                H, HtH = self.h2H(h, hv, hm)
+                Ht = H.transpose(-1, -2).conj()
+                # to real
+                HtH_r = self.toReal(HtH)
+                Ht_r = self.toReal(Ht)
+                H_r = self.toReal(H)
             
             # BSO
             V_bso = inv(alpha*HtH_r + torch.diag_embed(1/sqz(d, -1)))
             x_bso = V_bso @ (alpha * (Ht_r @ y_r - HtH_r @ xp_r) + c/d)
             v_bso = usqz(diagonal(V_bso, dim1=-2, dim2=-1), -1)
             v_bso = v_bso.clamp(min_var_r)
-            # BSE
-            #x_bse, v_bse = self.bse(x_bso, v_bso)
-            # DSC
-            x_dsc = x_bso
-            v_dsc = v_bso
-            
             # GNN
             # GNN - generate features
-            x_feat_n, x_feat_e = self.genFeatures(y_r, H_r, HtH_r, No, x_dsc, v_dsc)
-            #
+            x_feat_n, x_feat_e = self.genFeatures(y_r, H_r, HtH_r, No)
+            hs_feat_n = zeros([self.B, 2*self.sig_len, 64], device=self.dev)
+            x_gnn_r, v_gnn_r = self.gnn_det(x_feat_n, x_feat_e, hs_feat_n, node_mean=x_bso, node_vari=v_bso, last=(t==self.iter_num-1))
+            if t == self.iter_num - 1:
+                break
+            v_gnn_r = v_gnn_r.clamp(min_var_r)
+            # to complex
+            x_gnn = x_gnn_r[:, :self.sig_len, :] + 1j*x_gnn_r[:, self.sig_len:, :]
+            v_gnn = v_gnn_r[:, :self.sig_len, :] + v_gnn_r[:, self.sig_len:, :]
+            # DSC
+            #x_dsc = x_bso
+            #v_dsc = v_bso
             
+            # CHE
+            if che:
+                # to Phi
+                P, PtP = self.x2P(x_gnn, v_gnn, xp)
+                Pt = P.transpose(-1, -2).conj()
+                # to real
+                PtP_r = self.toReal(PtP)
+                Pt_r = self.toReal(Pt)
+                P_r = self.toReal(P)
+                # BSO
+                HV_bso = inv(alpha*PtP_r + torch.diag_embed(1/sqz(b, -1)))
+                h_bso = HV_bso @ (alpha * Pt_r @ y_r + a/b)
+                hv_bso = usqz(diagonal(HV_bso, dim1=-2, dim2=-1), -1)
+                hv_bso = hv_bso.clamp(min_var_r)
+                # GNN
+                h_feat_n, h_feat_e = self.genFeatures(y_r, P_r, PtP_r, No)
+                hs_feat_n = zeros([self.B, 2*self.pmax, 64], device=self.dev)
+                h_gnn_r, hv_gnn_r = self.gnn_che(h_feat_n, h_feat_e, hs_feat_n, node_mean=h_bso, node_vari=hv_bso)
+                # to complex
+                h = h_gnn_r[:, :self.pmax, :] + 1j*h_gnn_r[:, self.pmax:, :]
+                hv = hv_gnn_r[:, :self.pmax, :] + hv_gnn_r[:, self.pmax:, :]
             
+            # udpate
+            if che:
+                a = h_gnn_r
+                b = hv_gnn_r
+            c = x_gnn_r
+            d = v_gnn_r
             
-            print()
-            
-    '''
-    BSE
-    @x: [B, KL, 1]
-    @v: [B, KL, 1]
-    '''
-    def bse(self, x, v, *, min_var=5e-11):
-        # BSE - Estimate P(x|y) using Gaussian distribution
-        pxyPdfExpPower = -1/(2*v)*torch.square(x - self.constel_B_row_r)
-        # BSE - make every row the max power is 0
-        #     - max only consider the real part
-        pxypdfExpNormPower = pxyPdfExpPower - pxyPdfExpPower.max(-1, keepdim=True).values
-        pxyPdf = torch.exp(pxypdfExpNormPower)
-        # BSE - Calculate the coefficient of every possible x to make the sum of all
-        pxyPdfCoeff = 1/pxyPdf.sum(-1, keepdim=True)
-        # BSE - PDF normalisation
-        pxyPdfNorm = pxyPdfCoeff*pxyPdf
-        # BSE - calculate the mean and variance
-        x_bse_d = (pxyPdfNorm*self.constel_B_row_r).sum(-1, keepdim=True)
-        v_bse_d = (torch.square(x_bse_d - self.constel_B_row_r)*pxyPdfNorm).sum(-1, keepdim=True)
-        v_bse_d = v_bse_d.clamp(min_var)
-        return x_bse_d, v_bse_d
+            # h_bso_c = self.toComplex(h_bso).detach().numpy()
+            # hv_bso_c = (hv_bso[:, :self.pmax, :] + hv_bso[:, self.pmax:, :]).detach().numpy()
+        
+        if che and det:
+            return H_r, x_gnn_r
+        elif che:
+            return H_r
+        elif det:
+            return x_gnn_r
             
         
     #--------------------------------------------------------------------------
@@ -443,6 +517,24 @@ class VBPICNet(VB, nn.Module):
                             HtH = HtH + self.TtTs[i, j]*hij
         return H, HtH
     
+    '''
+    transfer the estimated signal to CHE matrix
+    '''
+    def x2P(self, x, v, xp=None):
+        if xp is not None:
+            x = xp + x
+            #x = xp
+        P_cols = []
+        Pv_cols = []
+        for i in range(self.pmax):
+            P_cols.append(self.Psis[i].to(self.ctype) @ x)
+            Pv_cols.append(self.Psis[i] @ v)
+        P = cat(P_cols, -1)
+        Pv = cat(Pv_cols, -1)
+        PtP = P.transpose(-1, -2).conj() @ P + torch.diag_embed(Pv.sum(-2))
+        #PtP = P.transpose(-1, -2).conj() @ P
+        return P, PtP
+    
     #--------------------------------------------------------------------------
     # AI related functions
     '''
@@ -462,7 +554,7 @@ class VBPICNet(VB, nn.Module):
     def toComplex(self, in0):
         if in0.shape[-1] == 1:
             half_id = in0.shape[-2] // 2
-            out0 = in0[..., :half_id] + 1j*in0[..., half_id:]
+            out0 = in0[..., :half_id, :] + 1j*in0[..., half_id:, :]
         else:
             row_id_half = in0.shape[-2] // 2
             col_id_half = in0.shape[-1] // 2
@@ -473,17 +565,16 @@ class VBPICNet(VB, nn.Module):
         return out0
     
     
-    
     '''
     generate features (y=H*x+No or y=Phi*h+No)
     @in0:       y, [(batch_size), KL, 1]
-    @in1:       H or Phi, [(batch_size), KL*KL] or [(batch_size), KL*pmax]
-    @in2:       HtH or PtP, [(batch_size), KL*KL] or [(batch_size), KL*pmax]
+    @in1:       H or Phi, [(batch_size), KL, KL] or [(batch_size), KL, pmax]
+    @in2:       HtH or PtP, [(batch_size), KL, KL] or [(batch_size), pmax, pmax]
     @in3:       the noise power, [B, 1, 1]
     '''
     def genFeatures(self, in0, in1, in2, in3):
         # node number
-        n_num = in1.shape[-2]
+        n_num = in1.shape[-1]
         # node
         yTh = (in0.transpose(-1, -2) @ in1).transpose(-1, -2)
         hth_diag = usqz(diagonal(in2, dim1=-2, dim2=-1), -1)
@@ -492,9 +583,43 @@ class VBPICNet(VB, nn.Module):
         
         # edge_mask
         mask = repmat(~eye(n_num, dtype=bool, device=self.dev), [self.B, 1, 1])
-        
         # edge
         feat_e = cat([-in2[mask].view(self.B, n_num*(n_num-1), 1), repmat(1/in3, [1, n_num*(n_num-1), 1])], -1)
         
         
-        return feat_n, feat_e, resid
+        return feat_n, feat_e
+    
+    
+    '''
+    symbol mapping (hard)
+    @the probability
+    '''
+    def symmap(self, syms_prob):
+        syms_prob = sm(syms_prob)
+        syms_ids = torch.argmax(syms_prob, axis=-1, keepdim=True)
+        syms_r = self.constel_r[syms_ids].detach()
+        return syms_r[..., :self.sig_len, :] + syms_r[..., self.sig_len:, :]*1j
+    
+    #--------------------------------------------------------------------------
+    # obsolete
+    '''
+    BSE
+    @x: [B, KL, 1]
+    @v: [B, KL, 1]
+    '''
+    def bse(self, x, v, *, min_var=5e-11):
+        # BSE - Estimate P(x|y) using Gaussian distribution
+        pxyPdfExpPower = -1/(2*v)*torch.square(x - self.constel_B_row_r)
+        # BSE - make every row the max power is 0
+        #     - max only consider the real part
+        pxypdfExpNormPower = pxyPdfExpPower - pxyPdfExpPower.max(-1, keepdim=True).values
+        pxyPdf = torch.exp(pxypdfExpNormPower)
+        # BSE - Calculate the coefficient of every possible x to make the sum of all
+        pxyPdfCoeff = 1/pxyPdf.sum(-1, keepdim=True)
+        # BSE - PDF normalisation
+        pxyPdfNorm = pxyPdfCoeff*pxyPdf
+        # BSE - calculate the mean and variance
+        x_bse_d = (pxyPdfNorm*self.constel_B_row_r).sum(-1, keepdim=True)
+        v_bse_d = (torch.square(x_bse_d - self.constel_B_row_r)*pxyPdfNorm).sum(-1, keepdim=True)
+        v_bse_d = v_bse_d.clamp(min_var)
+        return x_bse_d, v_bse_d
