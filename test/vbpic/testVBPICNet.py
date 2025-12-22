@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import gc
 import scipy.io
 import numpy as np
@@ -19,8 +20,8 @@ dev = torch.device('cpu')
 #dev = torch.device('cuda', index=0) if torch.cuda.is_available() else torch.device('cpu')
 
 
-B = 16
-N_epo = 500
+B = 32
+N_epo = 50000
 
 genconfig("OTFS", "SP_REP_DELAY", "toy")
 Es_d = 1
@@ -107,7 +108,8 @@ l = 0.3
 # train
 vbpicnn.to(dev)
 vbpicnn.train()
-losses = []
+losses = zeros([N_epo, 1])
+#plt.figure(figsize=(8, 6))
 for t in range(N_epo):
     xDD_r_prob = vbpicnn(Y_DD, h, hv, hm, No, H=H_DD)
     loss_ce = 0
@@ -121,7 +123,9 @@ for t in range(N_epo):
     loss.backward(retain_graph=True)
     optimizer.step()
     loss = loss.to('cpu').detach().numpy()
-    losses.append(loss)
+    losses[t] = loss
+    
+    #plt.plot(arange(N_epo), losses, 'b-', linewidth=2, label='loss')
     
     xDD_r_prob = xDD_r_prob.detach()
     
@@ -131,7 +135,7 @@ for t in range(N_epo):
     
     
     
-    print("%04d: loss=%e, SER=%e"%(t, loss, ser))
+    print("%06d: loss=%e, SER=%e"%(t, loss, ser))
 
 vbpicnn = None
 del vbpicnn
