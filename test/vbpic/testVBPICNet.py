@@ -110,48 +110,49 @@ vbpicnn.to(dev)
 vbpicnn.train()
 losses = zeros([N_epo, 1])
 #plt.figure(figsize=(8, 6))
-for t in range(N_epo):
-    xDD_r_prob = vbpicnn(Y_DD, h, hv, hm, No, H=H_DD)
-    loss_ce = 0
-    l#oss_mse = cc_mse(H, H_DD_r).mean()
-    for i in range(data_len):
-        loss_ce = loss_ce + cc_ce(xDD_r_prob[:, i, :], xDD_r_ids[:, i])
-    #loss = loss_mse * l + (1-l)*loss_ce
-    loss = loss_ce
+# for t in range(N_epo):
+#     xDD_r_prob = vbpicnn(Y_DD, h, hv, hm, No, H=H_DD)
+#     loss_ce = 0
+#     l#oss_mse = cc_mse(H, H_DD_r).mean()
+#     for i in range(data_len):
+#         loss_ce = loss_ce + cc_ce(xDD_r_prob[:, i, :], xDD_r_ids[:, i])
+#     #loss = loss_mse * l + (1-l)*loss_ce
+#     loss = loss_ce
     
-    optimizer.zero_grad()
-    loss.backward(retain_graph=True)
-    optimizer.step()
-    loss = loss.to('cpu').detach().numpy()
-    losses[t] = loss
+#     optimizer.zero_grad()
+#     loss.backward(retain_graph=True)
+#     optimizer.step()
+#     loss = loss.to('cpu').detach().numpy()
+#     losses[t] = loss
     
-    #plt.plot(arange(N_epo), losses, 'b-', linewidth=2, label='loss')
+#     #plt.plot(arange(N_epo), losses, 'b-', linewidth=2, label='loss')
     
-    xDD_r_prob = xDD_r_prob.detach()
+#     xDD_r_prob = xDD_r_prob.detach()
     
-    xDD_est = vbpicnn.symmap(xDD_r_prob).numpy()
-    ser = 1- np.sum((xDD_est == xDD_syms))/B/data_len
-    
-    
+#     xDD_est = vbpicnn.symmap(xDD_r_prob).numpy()
+#     ser = 1- np.sum((xDD_est == xDD_syms))/B/data_len
     
     
-    print("%06d: loss=%e, SER=%e"%(t, loss, ser))
+    
+    
+#     print("%06d: loss=%e, SER=%e"%(t, loss, ser))
 
-vbpicnn = None
-del vbpicnn
-gc.collect()
-torch.cuda.empty_cache()
+# vbpicnn = None
+# del vbpicnn
+# gc.collect()
+# torch.cuda.empty_cache()
 
-# Ts = vbpicnn.Ts.numpy()
-# phi_rows = []
-# for i in range(vbpicnn.pmax):
-#     phi_rows.append(abs(Ts[i]) @ xDD)
-# phi = np.concat(phi_rows, -1)
-# phi2, _ = vbpicnn.x2P(xDD, xDD)
+Ts = vbpicnn.Ts.numpy()
+phi_rows = []
+for i in range(vbpicnn.pmax):
+    phi_rows.append(Ts[i] @ xDD)
+phi = np.concat(phi_rows, -1)
+phi2, _ = vbpicnn.x2P(xDD, xDD)
+phi2 = phi2.numpy()
 
 
-# yDD_diff_che = abs(yDD - phi @ his_full[..., None])
-# yDD_diff_che_max = np.max(yDD_diff_che)
+yDD_diff_che = abs(yDD - phi @ his_full[..., None])
+yDD_diff_che_max = np.max(yDD_diff_che)
 
 
 # H_DD_full = otfs.getChannel(his_full, repmat(vbpicnn.lis.numpy(), [B, 1]), repmat(vbpicnn.kis.numpy(), [B, 1]))
